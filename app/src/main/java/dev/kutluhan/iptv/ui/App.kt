@@ -66,7 +66,7 @@ fun App(vm: AppViewModel) {
         BackHandler(enabled = stack.isEmpty()) {
             val now = SystemClock.elapsedRealtime()
             if (now - lastBack < 2500) {
-                (context as? Activity)?.finish()
+                context.findActivity()?.finish()
             } else {
                 lastBack = now
                 Toast.makeText(context, "Çıkmak için tekrar Geri'ye basın", Toast.LENGTH_SHORT).show()
@@ -107,4 +107,10 @@ private fun Layer(active: Boolean, content: @Composable () -> Unit) {
     ) {
         content()
     }
+}
+
+private tailrec fun android.content.Context.findActivity(): Activity? = when (this) {
+    is Activity -> this
+    is android.content.ContextWrapper -> baseContext.findActivity()
+    else -> null
 }

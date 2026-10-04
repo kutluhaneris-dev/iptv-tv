@@ -236,11 +236,11 @@ fun PlayerScreen(vm: AppViewModel, items: List<PlayItem>, startIndex: Int, onInd
     DisposableEffect(lifecycle, player) {
         val observer = LifecycleEventObserver { _, event ->
             when (event) {
-                Lifecycle.Event.ON_STOP -> {
+                Lifecycle.Event.ON_PAUSE, Lifecycle.Event.ON_STOP -> {
                     player.pause()
                     if (currentItem.isLive) player.stop()
                 }
-                Lifecycle.Event.ON_START -> if (currentItem.isLive && player.playbackState == Player.STATE_IDLE) {
+                Lifecycle.Event.ON_RESUME -> if (currentItem.isLive && player.playbackState == Player.STATE_IDLE) {
                     player.seekToDefaultPosition()
                     player.prepare()
                     player.play()
