@@ -74,8 +74,9 @@ import dev.kutluhan.iptv.data.Http
 import dev.kutluhan.iptv.data.PlayItem
 import kotlinx.coroutines.delay
 import java.util.Locale
+import dev.kutluhan.iptv.data.PlayerMode
 
-private fun buildPlayer(context: Context): ExoPlayer {
+private fun buildPlayer(context: Context, mode: PlayerMode): ExoPlayer {
     val http = OkHttpDataSource.Factory(Http.client)
     val extractors = DefaultExtractorsFactory()
         .setTsExtractorFlags(
@@ -94,7 +95,13 @@ private fun buildPlayer(context: Context): ExoPlayer {
             trackSelectionParameters = trackSelectionParameters.buildUpon()
                 .setPreferredAudioLanguage("tr")
                 .setPreferredTextLanguage("tr")
+                // Tunneling hands frames straight to the TV chip, which paces 50fps on the 60Hz
+                // panel far more evenly than app-side rendering. ExoPlayer falls back on its own
+                // when a stream's codecs don't support it.
+                .setTunnelingEnabled(mode == PlayerMode.TUNNELED)
                 .build()
+            // The panel only runs at 60Hz, so don't ask it to switch for 50fps content.
+            videoChangeFrameRateStrategy = C.VIDEO_CHANGE_FRAME_RATE_STRATEGY_OFF
             setAudioAttributes(
                 AudioAttributes.Builder()
                     .setUsage(C.USAGE_MEDIA)
@@ -136,7 +143,7 @@ private fun formatTime(ms: Long): String {
 @Composable
 fun PlayerScreen(vm: AppViewModel, items: List<PlayItem>, startIndex: Int, onIndexChange: (Int) -> Unit) {
     val context = LocalContext.current
-    val player = remember { buildPlayer(context) }
+    val player = remember { buildPlayer(context, vm.playerMode) }
     var index by remember { mutableIntStateOf(startIndex.coerceIn(0, items.lastIndex)) }
     val item = items[index]
     val currentItem by rememberUpdatedState(item)
@@ -548,11 +555,6 @@ private fun optionsFor(player: ExoPlayer, tracks: Tracks, type: Int): List<Track
 
 @Composable
 private fun TrackMenu(player: ExoPlayer, tracks: Tracks, modifier: Modifier, onDone: () -> Unit) {
-    var closing by remember { mutableStateOf(false) }
-    val done = {
-        closing = true
-        onDone()
-    }
     val audio = optionsFor(player, tracks, C.TRACK_TYPE_AUDIO)
     val text = optionsFor(player, tracks, C.TRACK_TYPE_TEXT)
     val textOff = player.trackSelectionParameters.disabledTrackTypes.contains(C.TRACK_TYPE_TEXT) ||
@@ -568,8 +570,8 @@ private fun TrackMenu(player: ExoPlayer, tracks: Tracks, modifier: Modifier, onD
             .fillMaxHeight()
             .background(Color.Black.copy(alpha = 0.88f))
             .padding(20.dp)
-            // Keep D-pad focus inside the menu, but let it go once an option was picked.
-            .focusProperties { exit = { if (closing) FocusRequester.Default else FocusRequester.Cancel } }
+            // Keep D-pad focus inside the menu; it stays open until Back.
+            .focusProperties { exit = { FocusRequester.Cancel } }
             .focusGroup()
             .verticalScroll(rememberScrollState()),
     ) {
@@ -584,7 +586,6 @@ private fun TrackMenu(player: ExoPlayer, tracks: Tracks, modifier: Modifier, onD
                 modifier = if (i == 0) Modifier.focusRequester(firstItem) else Modifier,
                 onClick = {
                     o.select()
-                    done()
                 },
             )
         }
@@ -598,7 +599,6 @@ private fun TrackMenu(player: ExoPlayer, tracks: Tracks, modifier: Modifier, onD
                 player.trackSelectionParameters = player.trackSelectionParameters.buildUpon()
                     .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true)
                     .build()
-                done()
             },
         )
         if (text.isEmpty()) {
@@ -610,7 +610,6 @@ private fun TrackMenu(player: ExoPlayer, tracks: Tracks, modifier: Modifier, onD
                 selected = o.selected && !textOff,
                 onClick = {
                     o.select()
-                    done()
                 },
             )
         }

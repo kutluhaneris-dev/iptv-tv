@@ -14,3 +14,9 @@ enum class LiveFormat(val extension: String, val label: String) {
     TS("ts", "MPEG-TS (.ts)"),
     HLS("m3u8", "HLS (.m3u8)"),
 }
+
+/** How the video is handed to the TV's decoder. Tunneled lets the chip pace frames itself. */
+enum class PlayerMode(val label: String) {
+    TUNNELED("Donanımsal (önerilen)"),
+    STANDARD("Standart"),
+}

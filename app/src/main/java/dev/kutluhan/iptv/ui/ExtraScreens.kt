@@ -33,6 +33,7 @@ import dev.kutluhan.iptv.data.DEFAULT_USER_AGENT
 import dev.kutluhan.iptv.data.FavKeys
 import dev.kutluhan.iptv.data.LiveChannel
 import dev.kutluhan.iptv.data.LiveFormat
+import dev.kutluhan.iptv.data.PlayerMode
 import dev.kutluhan.iptv.data.M3uProfile
 import dev.kutluhan.iptv.data.SeriesItem
 import dev.kutluhan.iptv.data.VodItem
@@ -225,6 +226,22 @@ fun SettingsScreen(vm: AppViewModel) {
             LiveFormat.entries.forEach { f ->
                 Button(onClick = { vm.updateLiveFormat(f) }) {
                     Text(if (vm.liveFormat == f) "✓ ${f.label}" else f.label)
+                }
+            }
+        }
+
+        Spacer(Modifier.height(24.dp))
+        Text("Oynatıcı modu", fontSize = 16.sp, color = Palette.textDim)
+        Text(
+            "Görüntü kare kare akıyorsa diğer modu deneyin. Yeni ayar bir sonraki açılan yayında geçerli olur.",
+            fontSize = 13.sp,
+            color = Palette.textDim,
+            modifier = Modifier.padding(bottom = 6.dp),
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            PlayerMode.entries.forEach { m ->
+                Button(onClick = { vm.updatePlayerMode(m) }) {
+                    Text(if (vm.playerMode == m) "✓ ${m.label}" else m.label)
                 }
             }
         }

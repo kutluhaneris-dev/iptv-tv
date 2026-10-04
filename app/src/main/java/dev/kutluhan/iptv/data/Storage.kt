@@ -54,6 +54,10 @@ class Storage(context: Context) {
         get() = runCatching { LiveFormat.valueOf(prefs.getString("live_format", null) ?: "TS") }.getOrDefault(LiveFormat.TS)
         set(value) = prefs.edit().putString("live_format", value.name).apply()
 
+    var playerMode: PlayerMode
+        get() = runCatching { PlayerMode.valueOf(prefs.getString("player_mode", null) ?: "TUNNELED") }.getOrDefault(PlayerMode.TUNNELED)
+        set(value) = prefs.edit().putString("player_mode", value.name).apply()
+
     var userAgent: String
         get() = prefs.getString("user_agent", null) ?: DEFAULT_USER_AGENT
         set(value) = prefs.edit().putString("user_agent", value).apply()

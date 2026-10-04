@@ -13,6 +13,7 @@ import dev.kutluhan.iptv.data.Episode
 import dev.kutluhan.iptv.data.Http
 import dev.kutluhan.iptv.data.LiveChannel
 import dev.kutluhan.iptv.data.LiveFormat
+import dev.kutluhan.iptv.data.PlayerMode
 import dev.kutluhan.iptv.data.M3uProfile
 import dev.kutluhan.iptv.data.M3uProvider
 import dev.kutluhan.iptv.data.Profile
@@ -45,6 +46,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     var liveFormat by mutableStateOf(storage.liveFormat)
         private set
     var userAgent by mutableStateOf(storage.userAgent)
+        private set
+    var playerMode by mutableStateOf(storage.playerMode)
         private set
 
     /** EPG by channel id; an empty list means "looked it up, nothing there". */
@@ -157,6 +160,11 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         storage.liveFormat = format
         // Channel URLs carry the extension, so rebuild them.
         if (profile is XtreamProfile) reload()
+    }
+
+    fun updatePlayerMode(mode: PlayerMode) {
+        playerMode = mode
+        storage.playerMode = mode
     }
 
     fun updateUserAgent(ua: String) {
