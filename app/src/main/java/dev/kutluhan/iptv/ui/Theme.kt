@@ -1,6 +1,12 @@
 package dev.kutluhan.iptv.ui
 
+import androidx.compose.foundation.gestures.BringIntoViewSpec
+import androidx.compose.foundation.gestures.LocalBringIntoViewSpec
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.remember
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.graphics.Color
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.darkColorScheme
@@ -28,6 +34,26 @@ fun IptvTheme(content: @Composable () -> Unit) {
             onSurface = Palette.text,
             onBackground = Palette.text,
         ),
-        content = content,
-    )
+    ) {
+        val margin = with(LocalDensity.current) { 56.dp.toPx() }
+        val scrollSpec = remember(margin) { MinimalScrollSpec(margin) }
+        CompositionLocalProvider(LocalBringIntoViewSpec provides scrollSpec, content = content)
+    }
+}
+
+/**
+ * Compose on TV keeps the focused item pinned near the top of a list, so the whole list jumps on
+ * every D-pad press. Instead, let focus walk down the visible rows and scroll only when it gets
+ * within [margin] of an edge, like classic TV channel lists.
+ */
+private class MinimalScrollSpec(private val margin: Float) : BringIntoViewSpec {
+    override fun calculateScrollDistance(offset: Float, size: Float, containerSize: Float): Float {
+        val edge = margin.coerceAtMost((containerSize - size) / 2).coerceAtLeast(0f)
+        val trailing = offset + size
+        return when {
+            offset < edge -> offset - edge
+            trailing > containerSize - edge -> trailing - (containerSize - edge)
+            else -> 0f
+        }
+    }
 }

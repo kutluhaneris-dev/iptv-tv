@@ -47,6 +47,7 @@ android {
             "-opt-in=androidx.tv.material3.ExperimentalTvMaterial3Api",
             "-opt-in=androidx.media3.common.util.UnstableApi",
             "-opt-in=androidx.compose.ui.ExperimentalComposeUiApi",
+            "-opt-in=androidx.compose.foundation.ExperimentalFoundationApi",
         )
     }
     buildFeatures {
