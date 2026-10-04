@@ -27,6 +27,9 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -225,6 +228,28 @@ fun PlayerScreen(vm: AppViewModel, items: List<PlayItem>, startIndex: Int, onInd
             player.removeListener(listener)
             player.release()
         }
+    }
+
+    // Leaving the app (Home, input switch) must silence it. Live streams are stopped outright so
+    // the provider connection is freed too, then picked up again at the live edge on return.
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
+    DisposableEffect(lifecycle, player) {
+        val observer = LifecycleEventObserver { _, event ->
+            when (event) {
+                Lifecycle.Event.ON_STOP -> {
+                    player.pause()
+                    if (currentItem.isLive) player.stop()
+                }
+                Lifecycle.Event.ON_START -> if (currentItem.isLive && player.playbackState == Player.STATE_IDLE) {
+                    player.seekToDefaultPosition()
+                    player.prepare()
+                    player.play()
+                }
+                else -> Unit
+            }
+        }
+        lifecycle.addObserver(observer)
+        onDispose { lifecycle.removeObserver(observer) }
     }
 
     LaunchedEffect(index) {
