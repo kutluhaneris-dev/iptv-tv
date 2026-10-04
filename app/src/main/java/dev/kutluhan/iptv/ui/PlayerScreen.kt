@@ -62,6 +62,7 @@ import androidx.media3.common.Player
 import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.datasource.okhttp.OkHttpDataSource
 import androidx.media3.exoplayer.DefaultRenderersFactory
+import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.extractor.DefaultExtractorsFactory
@@ -88,17 +89,20 @@ private fun buildPlayer(context: Context, mode: PlayerMode): ExoPlayer {
     val renderers = DefaultRenderersFactory(context)
         .setEnableDecoderFallback(true)
         .setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER)
+    // Tunneling hands frames straight to the TV chip, which paces 50fps on the 60Hz panel far
+    // more evenly than app-side rendering. ExoPlayer falls back on its own when a stream's
+    // codecs don't support it.
+    val trackSelector = DefaultTrackSelector(context).apply {
+        setParameters(buildUponParameters().setTunnelingEnabled(mode == PlayerMode.TUNNELED))
+    }
     return ExoPlayer.Builder(context, renderers)
         .setMediaSourceFactory(mediaSources)
+        .setTrackSelector(trackSelector)
         .build()
         .apply {
             trackSelectionParameters = trackSelectionParameters.buildUpon()
                 .setPreferredAudioLanguage("tr")
                 .setPreferredTextLanguage("tr")
-                // Tunneling hands frames straight to the TV chip, which paces 50fps on the 60Hz
-                // panel far more evenly than app-side rendering. ExoPlayer falls back on its own
-                // when a stream's codecs don't support it.
-                .setTunnelingEnabled(mode == PlayerMode.TUNNELED)
                 .build()
             // The panel only runs at 60Hz, so don't ask it to switch for 50fps content.
             videoChangeFrameRateStrategy = C.VIDEO_CHANGE_FRAME_RATE_STRATEGY_OFF
