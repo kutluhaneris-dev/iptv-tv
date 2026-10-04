@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.focus.focusProperties
-import androidx.compose.ui.input.key.nativeKeyEvent
 import androidx.media3.common.Format
 import androidx.media3.common.TrackSelectionOverride
 import androidx.media3.common.Tracks

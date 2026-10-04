@@ -54,6 +54,13 @@ class HomeState {
     /** Key of the item that opened the screen on top, so focus can return to it. */
     var restoreKey by mutableStateOf<String?>(null)
     var restoreTick by mutableIntStateOf(0)
+
+    /**
+     * True right after a screen on top closes. Compose then hands focus to the first focusable
+     * item (the "Canlı TV" menu entry), which must not switch the section away from where the
+     * user was.
+     */
+    var returning = false
 }
 
 /** Lets the item with [key] take focus back when the screen above it closes. */
@@ -84,6 +91,12 @@ fun HomeScreen(vm: AppViewModel, catalog: Catalog, state: HomeState, nav: Naviga
             runCatching { firstItem.requestFocus() }
         }
     }
+    LaunchedEffect(state.restoreTick) {
+        if (state.restoreTick > 0) {
+            delay(500)
+            state.returning = false
+        }
+    }
     Row(
         Modifier
             .fillMaxSize()
@@ -110,7 +123,7 @@ fun HomeScreen(vm: AppViewModel, catalog: Catalog, state: HomeState, nav: Naviga
                     text = s.label,
                     selected = state.section == s,
                     modifier = if (i == 0) Modifier.focusRequester(firstItem) else Modifier,
-                    onFocus = { state.section = s },
+                    onFocus = { if (!state.returning) state.section = s },
                     onClick = { state.section = s },
                 )
             }

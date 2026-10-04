@@ -1,6 +1,13 @@
 package dev.kutluhan.iptv.ui
 
+import android.app.Activity
+import android.os.SystemClock
+import android.widget.Toast
 import androidx.activity.compose.BackHandler
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.foundation.background
 import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.layout.Box
@@ -47,10 +54,24 @@ fun App(vm: AppViewModel) {
             // removeAt instead of removeLast: the latter is a Java 21 API missing on older TVs.
             stack.removeAt(stack.lastIndex)
             val below = (stack.lastOrNull() as? Route.Series)?.state ?: home
+            below.returning = true
             below.restoreTick++
         }
 
         BackHandler(enabled = stack.isNotEmpty()) { pop() }
+
+        // On the home screen a single Back used to drop straight out to the TV's own input.
+        val context = LocalContext.current
+        var lastBack by remember { mutableLongStateOf(0L) }
+        BackHandler(enabled = stack.isEmpty()) {
+            val now = SystemClock.elapsedRealtime()
+            if (now - lastBack < 2500) {
+                (context as? Activity)?.finish()
+            } else {
+                lastBack = now
+                Toast.makeText(context, "Çıkmak için tekrar Geri'ye basın", Toast.LENGTH_SHORT).show()
+            }
+        }
 
         Box(Modifier.fillMaxSize().background(Palette.background)) {
             // Lower layers stay composed so their scroll position survives, but focus can't wander into them.
