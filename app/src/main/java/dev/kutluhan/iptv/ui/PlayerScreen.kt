@@ -157,7 +157,15 @@ fun PlayerScreen(vm: AppViewModel, items: List<PlayItem>, startIndex: Int, onInd
 
     fun closeTrackMenu() {
         trackMenu = false
-        runCatching { focus.requestFocus() }
+    }
+
+    // Focus has to come back to the player once the menu is gone; requesting it while the menu
+    // is still composed loses it, and the remote then does nothing.
+    LaunchedEffect(trackMenu) {
+        if (!trackMenu) {
+            delay(50)
+            runCatching { focus.requestFocus() }
+        }
     }
 
     BackHandler(enabled = trackMenu) { closeTrackMenu() }
@@ -540,6 +548,11 @@ private fun optionsFor(player: ExoPlayer, tracks: Tracks, type: Int): List<Track
 
 @Composable
 private fun TrackMenu(player: ExoPlayer, tracks: Tracks, modifier: Modifier, onDone: () -> Unit) {
+    var closing by remember { mutableStateOf(false) }
+    val done = {
+        closing = true
+        onDone()
+    }
     val audio = optionsFor(player, tracks, C.TRACK_TYPE_AUDIO)
     val text = optionsFor(player, tracks, C.TRACK_TYPE_TEXT)
     val textOff = player.trackSelectionParameters.disabledTrackTypes.contains(C.TRACK_TYPE_TEXT) ||
@@ -555,7 +568,8 @@ private fun TrackMenu(player: ExoPlayer, tracks: Tracks, modifier: Modifier, onD
             .fillMaxHeight()
             .background(Color.Black.copy(alpha = 0.88f))
             .padding(20.dp)
-            .focusProperties { exit = { FocusRequester.Cancel } }
+            // Keep D-pad focus inside the menu, but let it go once an option was picked.
+            .focusProperties { exit = { if (closing) FocusRequester.Default else FocusRequester.Cancel } }
             .focusGroup()
             .verticalScroll(rememberScrollState()),
     ) {
@@ -570,7 +584,7 @@ private fun TrackMenu(player: ExoPlayer, tracks: Tracks, modifier: Modifier, onD
                 modifier = if (i == 0) Modifier.focusRequester(firstItem) else Modifier,
                 onClick = {
                     o.select()
-                    onDone()
+                    done()
                 },
             )
         }
@@ -584,7 +598,7 @@ private fun TrackMenu(player: ExoPlayer, tracks: Tracks, modifier: Modifier, onD
                 player.trackSelectionParameters = player.trackSelectionParameters.buildUpon()
                     .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true)
                     .build()
-                onDone()
+                done()
             },
         )
         if (text.isEmpty()) {
@@ -596,7 +610,7 @@ private fun TrackMenu(player: ExoPlayer, tracks: Tracks, modifier: Modifier, onD
                 selected = o.selected && !textOff,
                 onClick = {
                     o.select()
-                    onDone()
+                    done()
                 },
             )
         }
