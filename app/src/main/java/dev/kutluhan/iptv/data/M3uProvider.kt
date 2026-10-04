@@ -1,7 +1,10 @@
 package dev.kutluhan.iptv.data
 
 import android.util.Xml
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import org.xmlpull.v1.XmlPullParser
 import java.io.BufferedReader
@@ -53,16 +56,18 @@ class M3uProvider(private val profile: M3uProfile) : Provider {
         return g[key.lowercase(Locale.ROOT)].orEmpty().filter { it.end > now }
     }
 
-    private val guideLock = Any()
+    private val guideLock = Mutex()
 
-    private suspend fun loadGuide(): Map<String, List<EpgProgram>>? = withContext(Dispatchers.IO) {
-        val url = guideUrl ?: return@withContext null
-        synchronized(guideLock) {
-            guide?.let { return@withContext it }
+    private suspend fun loadGuide(): Map<String, List<EpgProgram>>? {
+        val url = guideUrl ?: return null
+        return guideLock.withLock {
+            guide?.let { return@withLock it }
             val wanted = HashSet<String>()
             channels.forEach { ch -> ch.epgId?.let { wanted += it.lowercase(Locale.ROOT) } }
             val parsed = try {
                 Http.open(url) { XmltvParser.parse(it, wanted) }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 emptyMap()
             }

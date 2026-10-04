@@ -2,6 +2,11 @@ package dev.kutluhan.iptv.data
 
 import android.util.JsonReader
 import android.util.JsonToken
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.io.BufferedInputStream
@@ -33,23 +38,39 @@ object Http {
             .build()
     }
 
-    /** Opens [url] and hands the (transparently un-gzipped) body to [block]. */
-    fun <T> open(url: String, block: (InputStream) -> T): T {
-        val request = Request.Builder().url(url).build()
-        client.newCall(request).execute().use { response ->
-            if (!response.isSuccessful) throw IOException("Sunucu hatası: HTTP ${response.code}")
-            val body = response.body ?: throw IOException("Sunucudan boş yanıt geldi")
-            val input = BufferedInputStream(body.byteStream(), 64 * 1024)
-            input.mark(2)
-            val b1 = input.read()
-            val b2 = input.read()
-            input.reset()
-            val stream = if (b1 == 0x1f && b2 == 0x8b) GZIPInputStream(input, 64 * 1024) else input
-            return block(stream)
+    /**
+     * Opens [url] and hands the (transparently un-gzipped) body to [block].
+     * Cancelling the calling coroutine aborts the HTTP call, so a stalled server can't hang the app.
+     */
+    suspend fun <T> open(url: String, block: (InputStream) -> T): T = withContext(Dispatchers.IO) {
+        val call = client.newCall(Request.Builder().url(url).build())
+        coroutineScope {
+            val watcher = launch {
+                try {
+                    awaitCancellation()
+                } finally {
+                    call.cancel()
+                }
+            }
+            try {
+                call.execute().use { response ->
+                    if (!response.isSuccessful) throw IOException("Sunucu hatası: HTTP ${response.code}")
+                    val body = response.body ?: throw IOException("Sunucudan boş yanıt geldi")
+                    val input = BufferedInputStream(body.byteStream(), 64 * 1024)
+                    input.mark(2)
+                    val b1 = input.read()
+                    val b2 = input.read()
+                    input.reset()
+                    val stream = if (b1 == 0x1f && b2 == 0x8b) GZIPInputStream(input, 64 * 1024) else input
+                    block(stream)
+                }
+            } finally {
+                watcher.cancel()
+            }
         }
     }
 
-    fun text(url: String): String = open(url) { it.readBytes().toString(Charsets.UTF_8) }
+    suspend fun text(url: String): String = open(url) { it.readBytes().toString(Charsets.UTF_8) }
 }
 
 /**

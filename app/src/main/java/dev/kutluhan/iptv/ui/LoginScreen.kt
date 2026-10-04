@@ -15,7 +15,15 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.focusGroup
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusProperties
+import androidx.compose.ui.focus.focusRequester
+import dev.kutluhan.iptv.data.DEFAULT_USER_AGENT
+import kotlinx.coroutines.delay
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -108,8 +116,16 @@ fun LoginScreen(vm: AppViewModel) {
                 Text(message, color = Palette.error, fontSize = 14.sp, modifier = Modifier.padding(top = 8.dp))
             }
             Spacer(Modifier.height(12.dp))
-            Button(onClick = { submit() }, enabled = !vm.loading) {
-                Text(if (vm.loading) "Bağlanıyor..." else "Bağlan")
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Button(onClick = { submit() }, enabled = !vm.loading) {
+                    Text(if (vm.loading) "Bağlanıyor..." else "Bağlan")
+                }
+                // Settings are only reachable after login, so a User-Agent the server rejects must be undoable here.
+                if (vm.userAgent != DEFAULT_USER_AGENT) {
+                    Button(onClick = { vm.updateUserAgent(DEFAULT_USER_AGENT) }) {
+                        Text("User-Agent'ı VLC'ye geri al")
+                    }
+                }
             }
         }
         Spacer(Modifier.width(40.dp))
@@ -137,9 +153,7 @@ fun LoginScreen(vm: AppViewModel) {
     }
 
     if (vm.loading) {
-        Box(Modifier.fillMaxSize().background(Palette.background.copy(alpha = 0.85f)), contentAlignment = Alignment.Center) {
-            Text("Kanallar yükleniyor...", fontSize = 20.sp, color = Palette.text)
-        }
+        LoadingOverlay(onCancel = { vm.cancelLoading() })
     }
 }
 
@@ -147,4 +161,39 @@ fun LoginScreen(vm: AppViewModel) {
 private fun ModeButton(text: String, selected: Boolean, onClick: () -> Unit) {
     // Same composable for both states so focus is not lost when the selection changes.
     Button(onClick = onClick) { Text(if (selected) "✓ $text" else text) }
+}
+
+@Composable
+private fun LoadingOverlay(onCancel: () -> Unit) {
+    val cancelFocus = remember { FocusRequester() }
+    var seconds by remember { mutableIntStateOf(0) }
+    LaunchedEffect(Unit) {
+        delay(100)
+        runCatching { cancelFocus.requestFocus() }
+        while (true) {
+            delay(1000)
+            seconds++
+        }
+    }
+    Box(
+        Modifier
+            .fillMaxSize()
+            .background(Palette.background.copy(alpha = 0.92f))
+            .focusProperties { exit = { FocusRequester.Cancel } }
+            .focusGroup(),
+        contentAlignment = Alignment.Center,
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text("Kanallar yükleniyor... ($seconds sn)", fontSize = 20.sp, color = Palette.text)
+            Text(
+                "Büyük listelerde bu bir dakika kadar sürebilir.",
+                fontSize = 14.sp,
+                color = Palette.textDim,
+                modifier = Modifier.padding(top = 6.dp, bottom = 16.dp),
+            )
+            Button(onClick = onCancel, modifier = Modifier.focusRequester(cancelFocus)) {
+                Text("İptal")
+            }
+        }
+    }
 }

@@ -21,7 +21,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.focus.focusRestorer
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -73,7 +72,7 @@ fun FavoritesScreen(vm: AppViewModel, catalog: Catalog, state: HomeState, nav: N
         if (movies.isNotEmpty()) {
             item { ScreenTitle("Filmler", Modifier.padding(top = 16.dp)) }
             item {
-                LazyRow(Modifier.focusRestorer()) {
+                LazyRow {
                     itemsIndexed(movies, key = { i, v -> "m$i:${v.id}" }) { _, v ->
                         val key = "fav-vod:${v.id}"
                         PosterCard(
@@ -89,7 +88,7 @@ fun FavoritesScreen(vm: AppViewModel, catalog: Catalog, state: HomeState, nav: N
         if (series.isNotEmpty()) {
             item { ScreenTitle("Diziler", Modifier.padding(top = 16.dp)) }
             item {
-                LazyRow(Modifier.focusRestorer()) {
+                LazyRow {
                     itemsIndexed(series, key = { i, s -> "s$i:${s.id}" }) { _, s ->
                         val key = "fav-series:${s.id}"
                         PosterCard(
@@ -139,7 +138,7 @@ fun SearchScreen(vm: AppViewModel, catalog: Catalog, state: HomeState, nav: Navi
         if (query.trim().length >= 2 && results.isEmpty()) {
             EmptyMessage("Sonuç yok.")
         }
-        LazyColumn(Modifier.fillMaxSize().focusRestorer()) {
+        LazyColumn(Modifier.fillMaxSize()) {
             itemsIndexed(results, key = { i, _ -> i }) { _, hit ->
                 when (hit) {
                     is SearchHit.Live -> {

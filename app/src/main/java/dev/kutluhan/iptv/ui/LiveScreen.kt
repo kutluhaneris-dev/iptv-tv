@@ -22,7 +22,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.focus.focusRestorer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -67,8 +66,7 @@ fun LiveScreen(vm: AppViewModel, catalog: Catalog, state: HomeState, nav: Naviga
         LazyColumn(
             Modifier
                 .width(230.dp)
-                .fillMaxHeight()
-                .focusRestorer(),
+                .fillMaxHeight(),
         ) {
             itemsIndexed(categories, key = { i, c -> "$i:${c.first}" }) { _, (id, name, count) ->
                 TvRow(
@@ -88,7 +86,7 @@ fun LiveScreen(vm: AppViewModel, catalog: Catalog, state: HomeState, nav: Naviga
                     else "Bu kategoride kanal yok."
                 )
             } else {
-                LazyColumn(Modifier.weight(1f).focusRestorer()) {
+                LazyColumn(Modifier.weight(1f)) {
                     itemsIndexed(channels, key = { i, ch -> "$i:${ch.id}" }) { index, ch ->
                         val key = "live:${ch.id}"
                         val now = vm.epg[ch.id]?.firstOrNull { it.isNow() }

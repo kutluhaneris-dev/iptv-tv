@@ -23,7 +23,11 @@ import dev.kutluhan.iptv.data.XtreamProfile
 import dev.kutluhan.iptv.data.XtreamProvider
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeout
+
+private const val LOAD_TIMEOUT_MS = 120_000L
 
 class AppViewModel(app: Application) : AndroidViewModel(app) {
     val storage = Storage(app)
@@ -70,19 +74,34 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         provider = prov
         loadJob = viewModelScope.launch {
             try {
-                val c = prov.loadCatalog()
+                val c = withTimeout(LOAD_TIMEOUT_MS) { prov.loadCatalog() }
                 storage.saveProfile(p)
                 favorites = storage.favorites(p)
                 catalog = c
+            } catch (e: TimeoutCancellationException) {
+                error = "Sunucu ${LOAD_TIMEOUT_MS / 1000} saniyede yanıt vermedi. User-Agent'ı değiştirdiyseniz aşağıdan VLC'ye geri alıp tekrar deneyin."
+                profile = null
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Throwable) {
                 error = e.message ?: e.javaClass.simpleName
                 profile = null
             } finally {
-                loading = false
+                // A newer connect() or cancelLoading() owns the flag once it has replaced this job.
+                if (loadJob === coroutineContext[Job]) loading = false
             }
         }
+    }
+
+    /** Stops a load the user gave up on and returns to the login screen. */
+    fun cancelLoading() {
+        loadJob?.cancel()
+        loadJob = null
+        loading = false
+        profile = null
+        catalog = null
+        provider = null
+        error = "Yükleme iptal edildi."
     }
 
     fun reload() {

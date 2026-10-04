@@ -29,7 +29,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.focus.focusRestorer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -67,8 +66,7 @@ private fun CategoryColumn(
     LazyColumn(
         Modifier
             .width(230.dp)
-            .fillMaxHeight()
-            .focusRestorer(),
+            .fillMaxHeight(),
     ) {
         itemsIndexed(rows, key = { i, r -> "$i:${r.first}" }) { _, (id, name, count) ->
             TvRow(
@@ -101,7 +99,7 @@ fun VodScreen(vm: AppViewModel, catalog: Catalog, state: HomeState, nav: Navigat
         } else {
             LazyVerticalGrid(
                 columns = GridCells.Adaptive(128.dp),
-                modifier = Modifier.weight(1f).focusRestorer(),
+                modifier = Modifier.weight(1f),
             ) {
                 itemsIndexed(items, key = { i, v -> "$i:${v.id}" }) { _, v ->
                     val key = "vod:${v.id}"
@@ -143,7 +141,7 @@ fun SeriesScreen(vm: AppViewModel, catalog: Catalog, state: HomeState, nav: Navi
         } else {
             LazyVerticalGrid(
                 columns = GridCells.Adaptive(128.dp),
-                modifier = Modifier.weight(1f).focusRestorer(),
+                modifier = Modifier.weight(1f),
             ) {
                 itemsIndexed(items, key = { i, s -> "$i:${s.id}" }) { _, s ->
                     val key = "series:${s.id}"
@@ -225,8 +223,7 @@ fun SeriesDetailScreen(vm: AppViewModel, series: SeriesItem, pageState: HomeStat
                     val seasons = remember(list) { list.map { it.season }.distinct() }
                     LazyRow(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        modifier = Modifier.focusRestorer(),
-                    ) {
+                                            ) {
                         itemsIndexed(seasons, key = { _, s -> s }) { _, s ->
                             Button(onClick = { season = s }) {
                                 Text(if (season == s) "✓ Sezon $s" else "Sezon $s")
@@ -235,7 +232,7 @@ fun SeriesDetailScreen(vm: AppViewModel, series: SeriesItem, pageState: HomeStat
                     }
                     Spacer(Modifier.height(10.dp))
                     val seasonEpisodes = list.filter { it.season == season }
-                    LazyColumn(Modifier.fillMaxHeight().focusRestorer()) {
+                    LazyColumn(Modifier.fillMaxHeight()) {
                         itemsIndexed(seasonEpisodes, key = { i, e -> "$i:${e.id}" }) { index, e ->
                             val key = "ep:${e.id}"
                             TvRow(

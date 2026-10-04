@@ -1,6 +1,7 @@
 package dev.kutluhan.iptv.data
 
 import android.util.Base64
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
@@ -49,11 +50,12 @@ class XtreamProvider(
     override suspend fun loadCatalog(): Catalog = coroutineScope {
         authenticate()
         val liveCats = async(Dispatchers.IO) { categories("get_live_categories") }
-        val vodCats = async(Dispatchers.IO) { categories("get_vod_categories") }
-        val seriesCats = async(Dispatchers.IO) { categories("get_series_categories") }
+        // Movies and series are optional: some providers only sell live TV and error on these calls.
+        val vodCats = async(Dispatchers.IO) { optional { categories("get_vod_categories") } }
+        val seriesCats = async(Dispatchers.IO) { optional { categories("get_series_categories") } }
         val live = async(Dispatchers.IO) { liveStreams() }
-        val vod = async(Dispatchers.IO) { vodStreams() }
-        val series = async(Dispatchers.IO) { seriesList() }
+        val vod = async(Dispatchers.IO) { optional { vodStreams() } }
+        val series = async(Dispatchers.IO) { optional { seriesList() } }
         Catalog(
             liveCategories = liveCats.await(),
             live = live.await(),
@@ -64,7 +66,15 @@ class XtreamProvider(
         )
     }
 
-    private fun categories(action: String): List<Category> = Http.open(api(action)) { input ->
+    private suspend fun <T> optional(load: suspend () -> List<T>): List<T> = try {
+        load()
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: Exception) {
+        emptyList()
+    }
+
+    private suspend fun categories(action: String): List<Category> = Http.open(api(action)) { input ->
         val out = ArrayList<Category>()
         readJsonObjects(input) { o ->
             val id = o["category_id"] ?: return@readJsonObjects
@@ -73,7 +83,7 @@ class XtreamProvider(
         out
     }
 
-    private fun liveStreams(): List<LiveChannel> = Http.open(api("get_live_streams")) { input ->
+    private suspend fun liveStreams(): List<LiveChannel> = Http.open(api("get_live_streams")) { input ->
         val ext = liveFormat().extension
         val out = ArrayList<LiveChannel>()
         readJsonObjects(input) { o ->
@@ -91,7 +101,7 @@ class XtreamProvider(
         out
     }
 
-    private fun vodStreams(): List<VodItem> = Http.open(api("get_vod_streams")) { input ->
+    private suspend fun vodStreams(): List<VodItem> = Http.open(api("get_vod_streams")) { input ->
         val out = ArrayList<VodItem>()
         readJsonObjects(input) { o ->
             val id = o["stream_id"] ?: return@readJsonObjects
@@ -108,7 +118,7 @@ class XtreamProvider(
         out
     }
 
-    private fun seriesList(): List<SeriesItem> = Http.open(api("get_series")) { input ->
+    private suspend fun seriesList(): List<SeriesItem> = Http.open(api("get_series")) { input ->
         val out = ArrayList<SeriesItem>()
         readJsonObjects(input) { o ->
             val id = o["series_id"] ?: return@readJsonObjects
