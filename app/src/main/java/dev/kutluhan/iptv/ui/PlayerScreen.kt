@@ -2,6 +2,17 @@ package dev.kutluhan.iptv.ui
 
 import android.content.Context
 import android.view.ViewGroup
+import android.view.KeyEvent as AndroidKeyEvent
+import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.focusGroup
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.focus.focusProperties
+import androidx.compose.ui.input.key.nativeKeyEvent
+import androidx.media3.common.Format
+import androidx.media3.common.TrackSelectionOverride
+import androidx.media3.common.Tracks
 import androidx.compose.foundation.background
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Box
@@ -81,6 +92,10 @@ private fun buildPlayer(context: Context): ExoPlayer {
         .setMediaSourceFactory(mediaSources)
         .build()
         .apply {
+            trackSelectionParameters = trackSelectionParameters.buildUpon()
+                .setPreferredAudioLanguage("tr")
+                .setPreferredTextLanguage("tr")
+                .build()
             setAudioAttributes(
                 AudioAttributes.Builder()
                     .setUsage(C.USAGE_MEDIA)
@@ -138,6 +153,15 @@ fun PlayerScreen(vm: AppViewModel, items: List<PlayItem>, startIndex: Int, onInd
     var retries by remember { mutableIntStateOf(0) }
     var digits by remember { mutableStateOf("") }
     val focus = remember { FocusRequester() }
+    var tracks by remember { mutableStateOf(Tracks.EMPTY) }
+    var trackMenu by remember { mutableStateOf(false) }
+
+    fun closeTrackMenu() {
+        trackMenu = false
+        runCatching { focus.requestFocus() }
+    }
+
+    BackHandler(enabled = trackMenu) { closeTrackMenu() }
 
     fun showOverlay() {
         overlay = true
@@ -163,6 +187,10 @@ fun PlayerScreen(vm: AppViewModel, items: List<PlayItem>, startIndex: Int, onInd
             override fun onIsPlayingChanged(isPlaying: Boolean) {
                 playing = isPlaying
                 if (isPlaying) retries = 0
+            }
+
+            override fun onTracksChanged(newTracks: Tracks) {
+                tracks = newTracks
             }
 
             override fun onPlayerError(e: PlaybackException) {
@@ -238,7 +266,16 @@ fun PlayerScreen(vm: AppViewModel, items: List<PlayItem>, startIndex: Int, onInd
             .background(Color.Black)
             .focusRequester(focus)
             .onKeyEvent { event ->
+                // While the track menu is open, let D-pad keys move focus inside it.
+                if (trackMenu) return@onKeyEvent false
                 if (event.type != KeyEventType.KeyDown) return@onKeyEvent false
+                val code = event.nativeKeyEvent.keyCode
+                if (code == AndroidKeyEvent.KEYCODE_MENU || code == AndroidKeyEvent.KEYCODE_CAPTIONS ||
+                    code == AndroidKeyEvent.KEYCODE_MEDIA_AUDIO_TRACK
+                ) {
+                    trackMenu = true
+                    return@onKeyEvent true
+                }
                 val live = currentItem.isLive
                 when (event.key) {
                     Key.DirectionCenter, Key.Enter, Key.NumPadEnter -> {
@@ -263,7 +300,11 @@ fun PlayerScreen(vm: AppViewModel, items: List<PlayItem>, startIndex: Int, onInd
                         true
                     }
                     Key.DirectionUp -> {
-                        if (live) goTo(currentIndex - 1) else showOverlay()
+                        if (live) {
+                            goTo(currentIndex - 1)
+                        } else {
+                            trackMenu = true
+                        }
                         true
                     }
                     Key.DirectionDown -> {
@@ -363,8 +404,17 @@ fun PlayerScreen(vm: AppViewModel, items: List<PlayItem>, startIndex: Int, onInd
             }
         }
 
-        if (overlay || !playing) {
+        if ((overlay || !playing) && !trackMenu) {
             InfoOverlay(vm, item, index, items.size, position, duration, playing, Modifier.align(Alignment.BottomCenter))
+        }
+
+        if (trackMenu) {
+            TrackMenu(
+                player = player,
+                tracks = tracks,
+                modifier = Modifier.align(Alignment.CenterEnd),
+                onDone = { closeTrackMenu() },
+            )
         }
     }
 }
@@ -444,7 +494,114 @@ private fun InfoOverlay(
                 Spacer(Modifier.weight(1f))
                 Text(formatTime(duration), color = Color.White, fontSize = 14.sp)
             }
-            Text("OK: oynat/duraklat   ·   ◀▶ 10 sn   ·   ⏪⏩ 1 dk", color = Palette.textDim, fontSize = 12.sp, modifier = Modifier.padding(top = 8.dp))
+            Text("OK: oynat/duraklat   ·   ◀▶ 10 sn   ·   ⏪⏩ 1 dk   ·   ▲ ses ve altyazı", color = Palette.textDim, fontSize = 12.sp, modifier = Modifier.padding(top = 8.dp))
         }
+    }
+}
+
+private class TrackOption(val label: String, val selected: Boolean, val select: () -> Unit)
+
+private fun languageName(code: String?): String? {
+    if (code.isNullOrBlank() || code == "und") return null
+    val name = Locale.forLanguageTag(code).getDisplayLanguage(Locale("tr"))
+    return name.ifBlank { code }.replaceFirstChar { it.titlecase(Locale("tr")) }
+}
+
+private fun trackLabel(format: Format, type: Int, n: Int): String {
+    val parts = mutableListOf<String>()
+    (format.label ?: languageName(format.language))?.let { parts += it }
+    if (type == C.TRACK_TYPE_AUDIO) {
+        when {
+            format.channelCount >= 6 -> parts += "5.1"
+            format.channelCount == 2 -> parts += "Stereo"
+        }
+    }
+    if (format.selectionFlags and C.SELECTION_FLAG_FORCED != 0) parts += "zorunlu"
+    return if (parts.isEmpty()) "Parça $n" else parts.joinToString(" · ")
+}
+
+private fun optionsFor(player: ExoPlayer, tracks: Tracks, type: Int): List<TrackOption> {
+    val out = ArrayList<TrackOption>()
+    var n = 0
+    tracks.groups.filter { it.type == type }.forEach { group ->
+        for (i in 0 until group.length) {
+            if (!group.isTrackSupported(i)) continue
+            n++
+            val format = group.getTrackFormat(i)
+            out += TrackOption(trackLabel(format, type, n), group.isTrackSelected(i)) {
+                player.trackSelectionParameters = player.trackSelectionParameters.buildUpon()
+                    .setTrackTypeDisabled(type, false)
+                    .setOverrideForType(TrackSelectionOverride(group.mediaTrackGroup, i))
+                    .build()
+            }
+        }
+    }
+    return out
+}
+
+@Composable
+private fun TrackMenu(player: ExoPlayer, tracks: Tracks, modifier: Modifier, onDone: () -> Unit) {
+    val audio = optionsFor(player, tracks, C.TRACK_TYPE_AUDIO)
+    val text = optionsFor(player, tracks, C.TRACK_TYPE_TEXT)
+    val textOff = player.trackSelectionParameters.disabledTrackTypes.contains(C.TRACK_TYPE_TEXT) ||
+        text.none { it.selected }
+    val firstItem = remember { FocusRequester() }
+    LaunchedEffect(Unit) {
+        delay(50)
+        runCatching { firstItem.requestFocus() }
+    }
+    Column(
+        modifier
+            .width(340.dp)
+            .fillMaxHeight()
+            .background(Color.Black.copy(alpha = 0.88f))
+            .padding(20.dp)
+            .focusProperties { exit = { FocusRequester.Cancel } }
+            .focusGroup()
+            .verticalScroll(rememberScrollState()),
+    ) {
+        Text("Ses", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
+        if (audio.isEmpty()) {
+            Text("Ses parçası bilgisi yok", color = Palette.textDim, fontSize = 14.sp, modifier = Modifier.padding(vertical = 6.dp))
+        }
+        audio.forEachIndexed { i, o ->
+            TvRow(
+                text = (if (o.selected) "✓ " else "") + o.label,
+                selected = o.selected,
+                modifier = if (i == 0) Modifier.focusRequester(firstItem) else Modifier,
+                onClick = {
+                    o.select()
+                    onDone()
+                },
+            )
+        }
+        Spacer(Modifier.height(16.dp))
+        Text("Altyazı", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
+        TvRow(
+            text = (if (textOff) "✓ " else "") + "Kapalı",
+            selected = textOff,
+            modifier = if (audio.isEmpty()) Modifier.focusRequester(firstItem) else Modifier,
+            onClick = {
+                player.trackSelectionParameters = player.trackSelectionParameters.buildUpon()
+                    .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true)
+                    .build()
+                onDone()
+            },
+        )
+        if (text.isEmpty()) {
+            Text("Bu yayında altyazı yok", color = Palette.textDim, fontSize = 14.sp, modifier = Modifier.padding(vertical = 6.dp))
+        }
+        text.forEach { o ->
+            TvRow(
+                text = (if (o.selected && !textOff) "✓ " else "") + o.label,
+                selected = o.selected && !textOff,
+                onClick = {
+                    o.select()
+                    onDone()
+                },
+            )
+        }
+        Spacer(Modifier.height(12.dp))
+        Text("Geri: kapat", color = Palette.textDim, fontSize = 12.sp)
     }
 }
