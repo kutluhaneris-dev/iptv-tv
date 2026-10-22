@@ -29,6 +29,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusDirection
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
@@ -62,6 +64,8 @@ fun TvRow(
     logo: String? = null,
     favorite: Boolean = false,
     leading: String? = null,
+    /** Keep room for the second line even when it is empty, so rows don't grow as data loads in. */
+    reserveSecondary: Boolean = false,
     onFocus: (() -> Unit)? = null,
     onLongClick: (() -> Unit)? = null,
     onClick: () -> Unit,
@@ -111,9 +115,9 @@ fun TvRow(
             }
             Column(Modifier.weight(1f)) {
                 Text(text, fontSize = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                if (secondary != null) {
+                if (secondary != null || reserveSecondary) {
                     Text(
-                        secondary,
+                        secondary ?: " ",
                         fontSize = 12.sp,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
@@ -199,9 +203,8 @@ fun PosterCard(
             overflow = TextOverflow.Ellipsis,
             color = Palette.text,
         )
-        if (subtitle != null) {
-            Text(subtitle, fontSize = 11.sp, color = Palette.textDim, maxLines = 1)
-        }
+        // Always take the line so grid rows keep one height whether or not an item has a rating.
+        Text(subtitle ?: " ", fontSize = 11.sp, color = Palette.textDim, maxLines = 1)
     }
 }
 
@@ -282,3 +285,11 @@ fun HintBar(text: String, modifier: Modifier = Modifier) {
         Text(text, color = Palette.textDim, fontSize = 12.sp)
     }
 }
+
+/**
+ * Where D-pad focus lands when it moves into a list from outside. Without this Compose picks the
+ * row that happens to sit beside the previously focused one, which in a category list also
+ * switched the category, so the content jumped. [target] is used only while it is on screen.
+ */
+fun Modifier.enterAt(target: FocusRequester, visible: () -> Boolean): Modifier =
+    focusProperties { enter = { if (visible()) target else FocusRequester.Default } }

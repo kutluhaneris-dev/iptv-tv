@@ -247,6 +247,22 @@ fun SettingsScreen(vm: AppViewModel) {
         }
 
         Spacer(Modifier.height(24.dp))
+        Text("Canlı kanal önizlemesi", fontSize = 16.sp, color = Palette.textDim)
+        Text(
+            "Kanal listesinde gezinirken seçili kanal sağdaki kutuda oynar. Hesabınız tek bağlantıya izin veriyorsa ya da TV yavaşlarsa kapatın.",
+            fontSize = 13.sp,
+            color = Palette.textDim,
+            modifier = Modifier.padding(bottom = 6.dp),
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            listOf(true to "Açık", false to "Kapalı").forEach { (on, label) ->
+                Button(onClick = { vm.updateLivePreview(on) }) {
+                    Text(if (vm.livePreview == on) "✓ $label" else label)
+                }
+            }
+        }
+
+        Spacer(Modifier.height(24.dp))
         Text("Kullanıcı aracısı (User-Agent)", fontSize = 16.sp, color = Palette.textDim)
         Text(
             "Bazı sağlayıcılar sadece belirli uygulamalara izin verir.",

@@ -1,5 +1,27 @@
 package dev.kutluhan.iptv.ui
 
+import android.view.ViewGroup
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.viewinterop.AndroidView
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.compose.currentStateAsState
+import androidx.media3.common.PlaybackException
+import androidx.media3.common.Player
+import androidx.media3.ui.AspectRatioFrameLayout
+import androidx.media3.ui.PlayerView
+import dev.kutluhan.iptv.data.PlayerMode
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -62,17 +84,35 @@ fun LiveScreen(vm: AppViewModel, catalog: Catalog, state: HomeState, nav: Naviga
     }
     var focused by remember { mutableStateOf<LiveChannel?>(null) }
 
+    val categoryList = rememberLazyListState()
+    val selectedCategory = remember { FocusRequester() }
+    val selectedIndex = categories.indexOfFirst { it.first == state.liveCategory }
+    // Each category starts at its top, instead of keeping the scroll offset of the previous one.
+    val channelList = remember(state.liveCategory) { LazyListState() }
+    var lastChannel by remember(state.liveCategory) { mutableIntStateOf(0) }
+    val channelEntry = remember { FocusRequester() }
+    val channelTarget by remember(channelList) {
+        derivedStateOf {
+            val visible = channelList.layoutInfo.visibleItemsInfo
+            if (visible.any { it.index == lastChannel }) lastChannel else channelList.firstVisibleItemIndex
+        }
+    }
+
     Row(Modifier.fillMaxHeight()) {
         LazyColumn(
             Modifier
                 .width(230.dp)
-                .fillMaxHeight(),
+                .fillMaxHeight()
+                .enterAt(selectedCategory) { categoryList.layoutInfo.visibleItemsInfo.any { it.index == selectedIndex } },
+            state = categoryList,
         ) {
-            itemsIndexed(categories, key = { i, c -> "$i:${c.first}" }) { _, (id, name, count) ->
+            itemsIndexed(categories, key = { i, c -> "$i:${c.first}" }) { i, (id, name, count) ->
                 TvRow(
                     text = name,
                     secondary = if (count >= 0) "$count kanal" else null,
+                    reserveSecondary = true,
                     selected = state.liveCategory == id,
+                    modifier = if (i == selectedIndex) Modifier.focusRequester(selectedCategory) else Modifier,
                     onFocus = { state.liveCategory = id },
                     onClick = { state.liveCategory = id },
                 )
@@ -86,7 +126,12 @@ fun LiveScreen(vm: AppViewModel, catalog: Catalog, state: HomeState, nav: Naviga
                     else "Bu kategoride kanal yok."
                 )
             } else {
-                LazyColumn(Modifier.weight(1f)) {
+                LazyColumn(
+                    Modifier
+                        .weight(1f)
+                        .enterAt(channelEntry) { channelList.layoutInfo.visibleItemsInfo.any { it.index == channelTarget } },
+                    state = channelList,
+                ) {
                     itemsIndexed(channels, key = { i, ch -> "$i:${ch.id}" }) { index, ch ->
                         val key = "live:${ch.id}"
                         val now = vm.epg[ch.id]?.firstOrNull { it.isNow() }
@@ -95,9 +140,14 @@ fun LiveScreen(vm: AppViewModel, catalog: Catalog, state: HomeState, nav: Naviga
                             leading = if (ch.number > 0) ch.number.toString() else null,
                             logo = ch.logo,
                             secondary = now?.title,
+                            reserveSecondary = true,
                             favorite = FavKeys.live(ch.id) in favorites,
-                            modifier = Modifier.restorableFocus(state, key),
-                            onFocus = { focused = ch },
+                            modifier = (if (index == channelTarget) Modifier.focusRequester(channelEntry) else Modifier)
+                                .restorableFocus(state, key),
+                            onFocus = {
+                                focused = ch
+                                lastChannel = index
+                            },
                             onLongClick = { vm.toggleFavorite(FavKeys.live(ch.id)) },
                             onClick = {
                                 vm.storage.lastLiveChannel = ch.id
@@ -135,7 +185,12 @@ private fun ChannelPreview(vm: AppViewModel, channel: LiveChannel?, modifier: Mo
             .background(Palette.panel)
             .padding(18.dp),
     ) {
-        if (channel.logo != null) {
+        val lifecycle = LocalLifecycleOwner.current.lifecycle
+        val lifecycleState by lifecycle.currentStateAsState()
+        if (vm.livePreview && LocalLayerActive.current && lifecycleState.isAtLeast(Lifecycle.State.RESUMED)) {
+            PreviewVideo(channel)
+            Spacer(Modifier.height(12.dp))
+        } else if (channel.logo != null) {
             AsyncImage(
                 model = channel.logo,
                 contentDescription = null,
@@ -192,5 +247,80 @@ fun ProgressLine(progress: Float, modifier: Modifier = Modifier) {
                 .height(4.dp)
                 .background(Palette.accent),
         )
+    }
+}
+
+/** Plays the focused channel in a small box once focus has rested on it for a moment. */
+@Composable
+private fun PreviewVideo(channel: LiveChannel) {
+    val context = LocalContext.current
+    val player = remember { buildPlayer(context, PlayerMode.STANDARD, light = true) }
+    var ready by remember { mutableStateOf(false) }
+    DisposableEffect(player) {
+        val listener = object : Player.Listener {
+            override fun onRenderedFirstFrame() {
+                ready = true
+            }
+
+            override fun onPlayerError(error: PlaybackException) {
+                ready = false
+            }
+        }
+        player.addListener(listener)
+        onDispose {
+            player.removeListener(listener)
+            player.release()
+        }
+    }
+    LaunchedEffect(channel.id) {
+        ready = false
+        player.stop()
+        player.clearMediaItems()
+        delay(900) // only open a stream once the user stops on a channel
+        player.setMediaItem(mediaItemFor(channel.toPlayItem()))
+        player.prepare()
+        player.playWhenReady = true
+    }
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .aspectRatio(16f / 9f)
+            .clip(RoundedCornerShape(8.dp))
+            .background(Color.Black),
+    ) {
+        AndroidView(
+            factory = { ctx ->
+                PlayerView(ctx).apply {
+                    useController = false
+                    isFocusable = false
+                    isFocusableInTouchMode = false
+                    descendantFocusability = ViewGroup.FOCUS_BLOCK_DESCENDANTS
+                    resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
+                    setShowBuffering(PlayerView.SHOW_BUFFERING_NEVER)
+                    this.player = player
+                }
+            },
+            modifier = Modifier.fillMaxSize(),
+        )
+        if (!ready) {
+            if (channel.logo != null) {
+                AsyncImage(
+                    model = channel.logo,
+                    contentDescription = null,
+                    modifier = Modifier
+                        .align(Alignment.Center)
+                        .size(width = 120.dp, height = 68.dp),
+                    contentScale = ContentScale.Fit,
+                )
+            }
+            Text(
+                "Önizleme yükleniyor...",
+                color = Palette.textDim,
+                fontSize = 12.sp,
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 8.dp),
+            )
+        }
     }
 }

@@ -58,6 +58,10 @@ class Storage(context: Context) {
         get() = runCatching { PlayerMode.valueOf(prefs.getString("player_mode", null) ?: "TUNNELED") }.getOrDefault(PlayerMode.TUNNELED)
         set(value) = prefs.edit().putString("player_mode", value.name).apply()
 
+    var livePreview: Boolean
+        get() = prefs.getBoolean("live_preview", true)
+        set(value) = prefs.edit().putBoolean("live_preview", value).apply()
+
     var userAgent: String
         get() = prefs.getString("user_agent", null) ?: DEFAULT_USER_AGENT
         set(value) = prefs.edit().putString("user_agent", value).apply()

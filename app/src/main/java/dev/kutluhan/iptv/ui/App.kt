@@ -18,6 +18,8 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.ui.focus.focusProperties
 import dev.kutluhan.iptv.data.PlayItem
 import dev.kutluhan.iptv.data.SeriesItem
@@ -94,6 +96,9 @@ fun App(vm: AppViewModel) {
     }
 }
 
+/** False while another screen covers this one, e.g. so the channel preview stops under the player. */
+val LocalLayerActive = compositionLocalOf { true }
+
 @Composable
 private fun Layer(active: Boolean, content: @Composable () -> Unit) {
     Box(
@@ -105,7 +110,7 @@ private fun Layer(active: Boolean, content: @Composable () -> Unit) {
             }
             .focusGroup(),
     ) {
-        content()
+        CompositionLocalProvider(LocalLayerActive provides active) { content() }
     }
 }
 

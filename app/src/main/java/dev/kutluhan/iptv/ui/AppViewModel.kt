@@ -49,6 +49,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         private set
     var playerMode by mutableStateOf(storage.playerMode)
         private set
+    var livePreview by mutableStateOf(storage.livePreview)
+        private set
 
     /** EPG by channel id; an empty list means "looked it up, nothing there". */
     val epg = mutableStateMapOf<String, List<EpgProgram>>()
@@ -165,6 +167,11 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun updatePlayerMode(mode: PlayerMode) {
         playerMode = mode
         storage.playerMode = mode
+    }
+
+    fun updateLivePreview(on: Boolean) {
+        livePreview = on
+        storage.livePreview = on
     }
 
     fun updateUserAgent(ua: String) {

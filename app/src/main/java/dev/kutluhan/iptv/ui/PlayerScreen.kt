@@ -49,6 +49,7 @@ import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onKeyEvent
+import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -64,6 +65,7 @@ import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.datasource.okhttp.OkHttpDataSource
+import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
 import androidx.media3.exoplayer.ExoPlayer
@@ -79,8 +81,9 @@ import dev.kutluhan.iptv.data.PlayItem
 import kotlinx.coroutines.delay
 import java.util.Locale
 import dev.kutluhan.iptv.data.PlayerMode
+import dev.kutluhan.iptv.data.FavKeys
 
-private fun buildPlayer(context: Context, mode: PlayerMode): ExoPlayer {
+internal fun buildPlayer(context: Context, mode: PlayerMode, light: Boolean = false): ExoPlayer {
     val http = OkHttpDataSource.Factory(Http.client)
     val extractors = DefaultExtractorsFactory()
         .setTsExtractorFlags(
@@ -101,6 +104,10 @@ private fun buildPlayer(context: Context, mode: PlayerMode): ExoPlayer {
     return ExoPlayer.Builder(context, renderers)
         .setMediaSourceFactory(mediaSources)
         .setTrackSelector(trackSelector)
+        .apply {
+            // The channel preview runs next to the menus on a TV with little free RAM: keep its buffer small.
+            if (light) setLoadControl(DefaultLoadControl.Builder().setBufferDurationsMs(1500, 4000, 500, 1000).build())
+        }
         .build()
         .apply {
             trackSelectionParameters = trackSelectionParameters.buildUpon()
@@ -119,7 +126,7 @@ private fun buildPlayer(context: Context, mode: PlayerMode): ExoPlayer {
         }
 }
 
-private fun mediaItemFor(item: PlayItem): MediaItem {
+internal fun mediaItemFor(item: PlayItem): MediaItem {
     val path = item.url.lowercase(Locale.ROOT).substringBefore('?')
     return MediaItem.Builder()
         .setUri(item.url)
@@ -168,6 +175,8 @@ fun PlayerScreen(vm: AppViewModel, items: List<PlayItem>, startIndex: Int, onInd
     val focus = remember { FocusRequester() }
     var tracks by remember { mutableStateOf(Tracks.EMPTY) }
     var trackMenu by remember { mutableStateOf(false) }
+    var notice by remember { mutableStateOf<String?>(null) }
+    var centerLongFired by remember { mutableStateOf(false) }
 
     fun closeTrackMenu() {
         trackMenu = false
@@ -303,14 +312,57 @@ fun PlayerScreen(vm: AppViewModel, items: List<PlayItem>, startIndex: Int, onInd
         runCatching { focus.requestFocus() }
     }
 
+    LaunchedEffect(notice) {
+        if (notice != null) {
+            delay(2000)
+            notice = null
+        }
+    }
+
+    fun toggleFavorite() {
+        val ch = currentItem.channel ?: return
+        val key = FavKeys.live(ch.id)
+        vm.toggleFavorite(key)
+        notice = if (vm.isFavorite(key)) "★ Favorilere eklendi" else "Favorilerden çıkarıldı"
+        showOverlay()
+    }
+
     Box(
         Modifier
             .fillMaxSize()
             .background(Color.Black)
             .focusRequester(focus)
+            // Back (and the audio/menu key again) closes the track menu wherever focus is. Compose
+            // would otherwise use Back to try moving focus out of the menu, which the menu refuses,
+            // so the key got swallowed and the menu could never be closed. It closes on key-up so
+            // the same press doesn't also leave the player.
+            .onPreviewKeyEvent { event ->
+                if (!trackMenu) return@onPreviewKeyEvent false
+                val code = event.nativeKeyEvent.keyCode
+                val closes = event.key == Key.Back || code == AndroidKeyEvent.KEYCODE_MENU ||
+                    code == AndroidKeyEvent.KEYCODE_CAPTIONS || code == AndroidKeyEvent.KEYCODE_MEDIA_AUDIO_TRACK
+                if (!closes) return@onPreviewKeyEvent false
+                if (event.type == KeyEventType.KeyUp) closeTrackMenu()
+                true
+            }
             .onKeyEvent { event ->
                 // While the track menu is open, let D-pad keys move focus inside it.
                 if (trackMenu) return@onKeyEvent false
+                val isCenter = event.key == Key.DirectionCenter || event.key == Key.Enter || event.key == Key.NumPadEnter
+                // OK acts on release so that holding it can toggle the channel as a favorite instead.
+                if (isCenter && currentItem.isLive && error == null) {
+                    if (event.type == KeyEventType.KeyDown) {
+                        if (event.nativeKeyEvent.repeatCount == 0) {
+                            centerLongFired = false
+                        } else if (!centerLongFired && event.nativeKeyEvent.isLongPress) {
+                            centerLongFired = true
+                            toggleFavorite()
+                        }
+                    } else if (event.type == KeyEventType.KeyUp && !centerLongFired) {
+                        if (overlay) overlay = false else showOverlay()
+                    }
+                    return@onKeyEvent true
+                }
                 if (event.type != KeyEventType.KeyDown) return@onKeyEvent false
                 val code = event.nativeKeyEvent.keyCode
                 if (code == AndroidKeyEvent.KEYCODE_MENU || code == AndroidKeyEvent.KEYCODE_CAPTIONS ||
@@ -447,6 +499,20 @@ fun PlayerScreen(vm: AppViewModel, items: List<PlayItem>, startIndex: Int, onInd
             }
         }
 
+        if (notice != null) {
+            Text(
+                notice!!,
+                color = Color.White,
+                fontSize = 18.sp,
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .padding(top = 32.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(Color.Black.copy(alpha = 0.75f))
+                    .padding(horizontal = 18.dp, vertical = 10.dp),
+            )
+        }
+
         if ((overlay || !playing) && !trackMenu) {
             InfoOverlay(vm, item, index, items.size, position, duration, playing, Modifier.align(Alignment.BottomCenter))
         }
@@ -506,7 +572,8 @@ private fun InfoOverlay(
             }
             Column(Modifier.weight(1f)) {
                 val number = channel?.number?.takeIf { it > 0 }?.let { "$it  " } ?: ""
-                Text(number + item.title, color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+                val star = if (channel != null && vm.isFavorite(FavKeys.live(channel.id))) "  ★" else ""
+                Text(number + item.title + star, color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
                 if (count > 1) {
                     Text("${index + 1} / $count", color = Palette.textDim, fontSize = 13.sp)
                 }
@@ -528,7 +595,7 @@ private fun InfoOverlay(
             if (next != null) {
                 Text("Sonra: ${next.timeRange()}  ${next.title}", color = Palette.textDim, fontSize = 14.sp, maxLines = 1)
             }
-            Text("▲▼ kanal değiştir   ·   rakamlar: kanal numarası   ·   OK: bilgiyi gizle", color = Palette.textDim, fontSize = 12.sp, modifier = Modifier.padding(top = 8.dp))
+            Text("▲▼ kanal değiştir   ·   rakamlar: kanal numarası   ·   OK: bilgiyi gizle   ·   OK basılı tut: favori", color = Palette.textDim, fontSize = 12.sp, modifier = Modifier.padding(top = 8.dp))
         } else if (!item.isLive) {
             val progress = if (duration > 0) (position.toFloat() / duration).coerceIn(0f, 1f) else 0f
             ProgressLine(progress)

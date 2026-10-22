@@ -17,6 +17,11 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.itemsIndexed
+import androidx.compose.foundation.lazy.grid.LazyGridState
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
@@ -63,16 +68,23 @@ private fun CategoryColumn(
             categories.forEach { c -> counts[c.id]?.takeIf { it > 0 }?.let { add(Triple(c.id, c.name, it)) } }
         }
     }
+    val listState = rememberLazyListState()
+    val selectedRow = remember { FocusRequester() }
+    val selectedIndex = rows.indexOfFirst { it.first == selected }
     LazyColumn(
         Modifier
             .width(230.dp)
-            .fillMaxHeight(),
+            .fillMaxHeight()
+            .enterAt(selectedRow) { listState.layoutInfo.visibleItemsInfo.any { it.index == selectedIndex } },
+        state = listState,
     ) {
-        itemsIndexed(rows, key = { i, r -> "$i:${r.first}" }) { _, (id, name, count) ->
+        itemsIndexed(rows, key = { i, r -> "$i:${r.first}" }) { i, (id, name, count) ->
             TvRow(
                 text = name,
                 secondary = if (count >= 0) "$count $unit" else null,
+                reserveSecondary = true,
                 selected = selected == id,
+                modifier = if (i == selectedIndex) Modifier.focusRequester(selectedRow) else Modifier,
                 onFocus = { onSelect(id) },
                 onClick = { onSelect(id) },
             )
@@ -97,18 +109,20 @@ fun VodScreen(vm: AppViewModel, catalog: Catalog, state: HomeState, nav: Navigat
         if (items.isEmpty()) {
             EmptyMessage(if (catalog.vod.isEmpty()) "Bu sağlayıcıda film yok." else "Burada film yok.")
         } else {
+            val grid = rememberPosterGrid(state.vodCategory)
             LazyVerticalGrid(
                 columns = GridCells.Adaptive(128.dp),
-                modifier = Modifier.weight(1f),
+                modifier = Modifier.weight(1f).enterAt(grid.entry) { grid.targetVisible() },
+                state = grid.state,
             ) {
-                itemsIndexed(items, key = { i, v -> "$i:${v.id}" }) { _, v ->
+                itemsIndexed(items, key = { i, v -> "$i:${v.id}" }) { i, v ->
                     val key = "vod:${v.id}"
                     PosterCard(
                         title = v.name,
                         image = v.poster,
                         subtitle = v.rating?.let { "★ $it" },
                         favorite = FavKeys.vod(v.id) in favorites,
-                        modifier = Modifier.restorableFocus(state, key),
+                        modifier = grid.itemModifier(i).restorableFocus(state, key),
                         onLongClick = { vm.toggleFavorite(FavKeys.vod(v.id)) },
                         onClick = { nav.play(listOf(v.toPlayItem()), 0, key) },
                     )
@@ -139,18 +153,20 @@ fun SeriesScreen(vm: AppViewModel, catalog: Catalog, state: HomeState, nav: Navi
         if (items.isEmpty()) {
             EmptyMessage("Burada dizi yok.")
         } else {
+            val grid = rememberPosterGrid(state.seriesCategory)
             LazyVerticalGrid(
                 columns = GridCells.Adaptive(128.dp),
-                modifier = Modifier.weight(1f),
+                modifier = Modifier.weight(1f).enterAt(grid.entry) { grid.targetVisible() },
+                state = grid.state,
             ) {
-                itemsIndexed(items, key = { i, s -> "$i:${s.id}" }) { _, s ->
+                itemsIndexed(items, key = { i, s -> "$i:${s.id}" }) { i, s ->
                     val key = "series:${s.id}"
                     PosterCard(
                         title = s.name,
                         image = s.poster,
                         subtitle = s.rating?.let { "★ $it" },
                         favorite = FavKeys.series(s.id) in favorites,
-                        modifier = Modifier.restorableFocus(state, key),
+                        modifier = grid.itemModifier(i).restorableFocus(state, key),
                         onLongClick = { vm.toggleFavorite(FavKeys.series(s.id)) },
                         onClick = { nav.openSeries(s, key) },
                     )
@@ -238,6 +254,7 @@ fun SeriesDetailScreen(vm: AppViewModel, series: SeriesItem, pageState: HomeStat
                             TvRow(
                                 text = "${e.number}. ${e.title}",
                                 secondary = e.plot,
+                            reserveSecondary = true,
                                 modifier = Modifier.restorableFocus(pageState, key),
                                 onClick = {
                                     nav.play(
@@ -254,3 +271,23 @@ fun SeriesDetailScreen(vm: AppViewModel, series: SeriesItem, pageState: HomeStat
         }
     }
 }
+
+/** Scroll position and focus entry point of a poster grid; each category starts at the top. */
+private class PosterGrid(val state: LazyGridState) {
+    val entry = FocusRequester()
+    var last by mutableIntStateOf(0)
+    val target by derivedStateOf {
+        val visible = state.layoutInfo.visibleItemsInfo
+        if (visible.any { it.index == last }) last else state.firstVisibleItemIndex
+    }
+
+    fun targetVisible() = state.layoutInfo.visibleItemsInfo.any { it.index == target }
+
+    fun itemModifier(index: Int): Modifier {
+        val base = if (index == target) Modifier.focusRequester(entry) else Modifier
+        return base.onFocusChanged { if (it.hasFocus) last = index }
+    }
+}
+
+@Composable
+private fun rememberPosterGrid(category: String): PosterGrid = remember(category) { PosterGrid(LazyGridState()) }
