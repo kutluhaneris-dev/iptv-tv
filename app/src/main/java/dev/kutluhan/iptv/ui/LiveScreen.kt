@@ -101,7 +101,7 @@ fun LiveScreen(vm: AppViewModel, catalog: Catalog, state: HomeState, nav: Naviga
     Row(Modifier.fillMaxHeight()) {
         LazyColumn(
             Modifier
-                .width(190.dp)
+                .width(170.dp)
                 .fillMaxHeight()
                 .enterAt(selectedCategory) { categoryList.layoutInfo.visibleItemsInfo.any { it.index == selectedIndex } },
             state = categoryList,
@@ -119,7 +119,7 @@ fun LiveScreen(vm: AppViewModel, catalog: Catalog, state: HomeState, nav: Naviga
             }
         }
         Spacer(Modifier.width(12.dp))
-        Column(Modifier.width(290.dp).fillMaxHeight()) {
+        Column(Modifier.width(260.dp).fillMaxHeight()) {
             if (channels.isEmpty()) {
                 EmptyMessage(
                     if (state.liveCategory == FAVORITE_CATEGORY) "Favori kanal yok.\nBir kanalda OK tuşuna basılı tutun."

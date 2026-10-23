@@ -73,7 +73,7 @@ private fun CategoryColumn(
     val selectedIndex = rows.indexOfFirst { it.first == selected }
     LazyColumn(
         Modifier
-            .width(230.dp)
+            .width(190.dp)
             .fillMaxHeight()
             .enterAt(selectedRow) { listState.layoutInfo.visibleItemsInfo.any { it.index == selectedIndex } },
         state = listState,

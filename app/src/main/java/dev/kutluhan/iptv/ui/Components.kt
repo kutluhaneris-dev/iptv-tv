@@ -77,7 +77,7 @@ fun TvRow(
         onLongClick = onLongClick,
         modifier = modifier
             .fillMaxWidth()
-            .padding(vertical = 2.dp)
+            .padding(vertical = 1.dp)
             .onFocusChanged {
                 focused = it.isFocused
                 if (it.isFocused) onFocus?.invoke()
@@ -92,14 +92,14 @@ fun TvRow(
         ),
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             if (leading != null) {
                 Text(
                     leading,
-                    modifier = Modifier.width(40.dp),
-                    fontSize = 13.sp,
+                    modifier = Modifier.width(32.dp),
+                    fontSize = 11.sp,
                     color = if (focused) Palette.onFocus else Palette.textDim,
                 )
             }
@@ -108,7 +108,7 @@ fun TvRow(
                     model = logo,
                     contentDescription = null,
                     modifier = Modifier
-                        .size(width = 48.dp, height = 30.dp)
+                        .size(width = 40.dp, height = 24.dp)
                         .clip(RoundedCornerShape(4.dp)),
                     contentScale = ContentScale.Fit,
                 )
@@ -118,7 +118,7 @@ fun TvRow(
                 // A long name scrolls while its row is focused, so similar names can be told apart.
                 Text(
                     text,
-                    fontSize = 15.sp,
+                    fontSize = 13.sp,
                     maxLines = 1,
                     overflow = if (focused) TextOverflow.Clip else TextOverflow.Ellipsis,
                     modifier = if (focused) Modifier.basicMarquee(initialDelayMillis = 600) else Modifier,
@@ -126,7 +126,7 @@ fun TvRow(
                 if (secondary != null || reserveSecondary) {
                     Text(
                         secondary ?: " ",
-                        fontSize = 12.sp,
+                        fontSize = 11.sp,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                         color = if (focused) Palette.onFocus.copy(alpha = 0.7f) else Palette.textDim,

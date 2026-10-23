@@ -21,7 +21,16 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.focus.focusRestorer
+import androidx.compose.foundation.focusGroup
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.focus.focusProperties
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.Color
+import androidx.tv.material3.ClickableSurfaceDefaults
+import androidx.tv.material3.Surface
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.tv.material3.Text
@@ -97,32 +106,40 @@ fun HomeScreen(vm: AppViewModel, catalog: Catalog, state: HomeState, nav: Naviga
             state.returning = false
         }
     }
-    Row(
+    // The sections sit in a strip along the top, so the lists and the preview get the full width.
+    val selectedTab = remember { FocusRequester() }
+    Column(
         Modifier
             .fillMaxSize()
             .background(Palette.background),
     ) {
-        Column(
+        Row(
             Modifier
-                .width(180.dp)
-                .fillMaxHeight()
+                .fillMaxWidth()
                 .background(Palette.panel)
-                .padding(horizontal = 10.dp, vertical = 20.dp)
-                .focusRestorer(),
+                .padding(horizontal = 20.dp, vertical = 8.dp)
+                // Coming up from the content lands on the current section, not the one above it.
+                .focusProperties { enter = { selectedTab } }
+                .focusGroup(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
         ) {
             Text(
                 vm.profile?.name ?: "IPTV",
-                fontSize = 15.sp,
+                fontSize = 13.sp,
                 color = Palette.textDim,
                 maxLines = 1,
-                modifier = Modifier.padding(start = 12.dp, bottom = 16.dp),
+                modifier = Modifier.padding(end = 14.dp),
             )
             Section.entries.forEachIndexed { i, s ->
-                if (s == Section.SETTINGS) Spacer(Modifier.height(24.dp))
-                TvRow(
-                    text = s.label,
+                if (s == Section.SETTINGS) Spacer(Modifier.weight(1f))
+                var mod: Modifier = Modifier
+                if (state.section == s) mod = mod.focusRequester(selectedTab)
+                if (i == 0) mod = mod.focusRequester(firstItem)
+                SectionTab(
+                    label = s.label,
                     selected = state.section == s,
-                    modifier = if (i == 0) Modifier.focusRequester(firstItem) else Modifier,
+                    modifier = mod,
                     onFocus = { if (!state.returning) state.section = s },
                     onClick = { state.section = s },
                 )
@@ -131,8 +148,8 @@ fun HomeScreen(vm: AppViewModel, catalog: Catalog, state: HomeState, nav: Naviga
         Box(
             Modifier
                 .weight(1f)
-                .fillMaxHeight()
-                .padding(start = 16.dp, top = 20.dp, end = 20.dp, bottom = 12.dp),
+                .fillMaxWidth()
+                .padding(start = 20.dp, top = 12.dp, end = 20.dp, bottom = 10.dp),
         ) {
             when (state.section) {
                 Section.LIVE -> LiveScreen(vm, catalog, state, nav)
@@ -143,5 +160,29 @@ fun HomeScreen(vm: AppViewModel, catalog: Catalog, state: HomeState, nav: Naviga
                 Section.SETTINGS -> SettingsScreen(vm)
             }
         }
+    }
+}
+
+@Composable
+private fun SectionTab(
+    label: String,
+    selected: Boolean,
+    modifier: Modifier,
+    onFocus: () -> Unit,
+    onClick: () -> Unit,
+) {
+    Surface(
+        onClick = onClick,
+        modifier = modifier.onFocusChanged { if (it.isFocused) onFocus() },
+        shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(50)),
+        scale = ClickableSurfaceDefaults.scale(focusedScale = 1.05f),
+        colors = ClickableSurfaceDefaults.colors(
+            containerColor = if (selected) Palette.panelAlt else Color.Transparent,
+            contentColor = if (selected) Palette.accent else Palette.text,
+            focusedContainerColor = Palette.focus,
+            focusedContentColor = Palette.onFocus,
+        ),
+    ) {
+        Text(label, fontSize = 14.sp, modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp))
     }
 }
