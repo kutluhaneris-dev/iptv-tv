@@ -2,6 +2,7 @@ package dev.kutluhan.iptv.ui
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -114,7 +115,14 @@ fun TvRow(
                 Spacer(Modifier.width(10.dp))
             }
             Column(Modifier.weight(1f)) {
-                Text(text, fontSize = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                // A long name scrolls while its row is focused, so similar names can be told apart.
+                Text(
+                    text,
+                    fontSize = 15.sp,
+                    maxLines = 1,
+                    overflow = if (focused) TextOverflow.Clip else TextOverflow.Ellipsis,
+                    modifier = if (focused) Modifier.basicMarquee(initialDelayMillis = 600) else Modifier,
+                )
                 if (secondary != null || reserveSecondary) {
                     Text(
                         secondary ?: " ",
