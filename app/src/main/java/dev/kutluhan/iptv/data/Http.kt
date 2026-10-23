@@ -76,10 +76,15 @@ object Http {
      * Fetches the first bytes of [url] and describes what the server actually sent, for when the
      * player can't read a file. Never includes the URL itself, since it carries the password.
      */
-    suspend fun probe(url: String): String = withContext(Dispatchers.IO) {
+    suspend fun probe(url: String, range: Boolean = true, ua: String? = null): String = withContext(Dispatchers.IO) {
         try {
-            val request = Request.Builder().url(url).header("Range", "bytes=0-1023").build()
-            client.newCall(request).execute().use { r ->
+            val builder = Request.Builder().url(url)
+            if (range) builder.header("Range", "bytes=0-1023")
+            val c = if (ua == null) client else client.newBuilder().apply {
+                interceptors().clear()
+                addInterceptor { it.proceed(it.request().newBuilder().header("User-Agent", ua).build()) }
+            }.build()
+            c.newCall(builder.build()).execute().use { r ->
                 val type = r.header("Content-Type") ?: "?"
                 val size = r.header("Content-Range")?.substringAfter('/') ?: r.header("Content-Length") ?: "?"
                 val bytes = r.body?.byteStream()?.use { it.readNBytesCompat(64) } ?: ByteArray(0)

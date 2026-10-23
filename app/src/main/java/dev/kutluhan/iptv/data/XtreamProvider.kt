@@ -45,6 +45,15 @@ class XtreamProvider(
         if (status.isNotEmpty() && !status.equals("Active", ignoreCase = true)) {
             throw IOException("Hesap durumu: $status")
         }
+        // Account shape for diagnosing playback, without the credentials.
+        val server = json.optJSONObject("server_info")
+        android.util.Log.i(
+            "IPTV-VOD",
+            "account formats=${info.optJSONArray("allowed_output_formats")} max_cons=${info.optString("max_connections")} " +
+                "active=${info.optString("active_cons")} trial=${info.optString("is_trial")} " +
+                "server=${server?.optString("url")}:${server?.optString("port")} https=${server?.optString("https_port")} " +
+                "proto=${server?.optString("server_protocol")}",
+        )
     }
 
     override suspend fun loadCatalog(): Catalog = coroutineScope {
@@ -60,7 +69,10 @@ class XtreamProvider(
             liveCategories = liveCats.await(),
             live = live.await(),
             vodCategories = vodCats.await(),
-            vod = vod.await(),
+            vod = vod.await().also { list ->
+                val exts = list.groupingBy { it.url.substringAfterLast('.') }.eachCount()
+                android.util.Log.i("IPTV-VOD", "vod count=${list.size} extensions=$exts")
+            },
             seriesCategories = seriesCats.await(),
             series = series.await(),
         )
