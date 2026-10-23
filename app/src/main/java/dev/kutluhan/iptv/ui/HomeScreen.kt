@@ -63,6 +63,7 @@ class HomeState {
     /** Key of the item that opened the screen on top, so focus can return to it. */
     var restoreKey by mutableStateOf<String?>(null)
     var restoreTick by mutableIntStateOf(0)
+    var restoredTick = 0
 
     /**
      * True right after a screen on top closes. Compose then hands focus to the first focusable
@@ -77,13 +78,14 @@ class HomeState {
 fun Modifier.restorableFocus(state: HomeState, key: String): Modifier {
     if (state.restoreKey != key) return this
     val requester = remember { FocusRequester() }
-    LaunchedEffect(state.restoreTick) {
-        if (state.restoreTick > 0) {
+    val active = LocalLayerActive.current
+    LaunchedEffect(state.restoreTick, active) {
+        // Each return restores once: not again when the section is revisited later (that pulled
+        // focus out of the top bar), and not while the screen on top is still open.
+        if (active && state.restoreTick > state.restoredTick) {
             delay(60)
             runCatching { requester.requestFocus() }
-            // One return, one restore: otherwise coming back to this section later would pull
-            // focus out of the top bar into the list again.
-            state.restoreKey = null
+            state.restoredTick = state.restoreTick
         }
     }
     return this.focusRequester(requester)
