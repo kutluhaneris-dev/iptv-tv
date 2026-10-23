@@ -101,7 +101,7 @@ fun LiveScreen(vm: AppViewModel, catalog: Catalog, state: HomeState, nav: Naviga
     Row(Modifier.fillMaxHeight()) {
         LazyColumn(
             Modifier
-                .width(230.dp)
+                .width(190.dp)
                 .fillMaxHeight()
                 .enterAt(selectedCategory) { categoryList.layoutInfo.visibleItemsInfo.any { it.index == selectedIndex } },
             state = categoryList,
@@ -119,7 +119,7 @@ fun LiveScreen(vm: AppViewModel, catalog: Catalog, state: HomeState, nav: Naviga
             }
         }
         Spacer(Modifier.width(12.dp))
-        Column(Modifier.width(340.dp).fillMaxHeight()) {
+        Column(Modifier.width(290.dp).fillMaxHeight()) {
             if (channels.isEmpty()) {
                 EmptyMessage(
                     if (state.liveCategory == FAVORITE_CATEGORY) "Favori kanal yok.\nBir kanalda OK tuşuna basılı tutun."
@@ -159,7 +159,7 @@ fun LiveScreen(vm: AppViewModel, catalog: Catalog, state: HomeState, nav: Naviga
                 HintBar("OK: izle   ·   OK basılı tut: favori")
             }
         }
-        Spacer(Modifier.width(16.dp))
+        Spacer(Modifier.width(12.dp))
         ChannelPreview(vm, focused, Modifier.weight(1f).fillMaxHeight())
     }
 }
@@ -183,7 +183,7 @@ private fun ChannelPreview(vm: AppViewModel, channel: LiveChannel?, modifier: Mo
         modifier
             .clip(RoundedCornerShape(12.dp))
             .background(Palette.panel)
-            .padding(18.dp),
+            .padding(12.dp),
     ) {
         val lifecycle = LocalLifecycleOwner.current.lifecycle
         val lifecycleState by lifecycle.currentStateAsState()
@@ -306,22 +306,27 @@ private fun PreviewVideo(channel: LiveChannel) {
             modifier = Modifier.fillMaxSize(),
         )
         if (!ready) {
-            Column(Modifier.align(Alignment.Center), horizontalAlignment = Alignment.CenterHorizontally) {
-                if (channel.logo != null) {
-                    AsyncImage(
-                        model = channel.logo,
-                        contentDescription = null,
-                        modifier = Modifier.size(width = 120.dp, height = 68.dp),
-                        contentScale = ContentScale.Fit,
-                    )
-                    Spacer(Modifier.height(8.dp))
-                }
-                Text(
-                    if (failed) "Önizleme açılamadı" else "Önizleme yükleniyor...",
-                    color = Palette.textDim,
-                    fontSize = 12.sp,
+            // The box is small on a TV, so the logo is sized from it and the text gets its own spot.
+            if (channel.logo != null && !failed) {
+                AsyncImage(
+                    model = channel.logo,
+                    contentDescription = null,
+                    modifier = Modifier
+                        .align(Alignment.Center)
+                        .fillMaxWidth(0.4f)
+                        .fillMaxHeight(0.4f),
+                    contentScale = ContentScale.Fit,
                 )
             }
+            Text(
+                if (failed) "Önizleme açılamadı" else "Yükleniyor...",
+                color = if (failed) Palette.error else Palette.textDim,
+                fontSize = 11.sp,
+                maxLines = 1,
+                modifier = Modifier
+                    .align(if (failed) Alignment.Center else Alignment.BottomCenter)
+                    .padding(bottom = 4.dp),
+            )
         }
     }
 }
