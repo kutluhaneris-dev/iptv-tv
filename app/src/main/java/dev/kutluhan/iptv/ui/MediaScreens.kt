@@ -183,6 +183,7 @@ fun SeriesDetailScreen(vm: AppViewModel, series: SeriesItem, pageState: HomeStat
     var error by remember(series.id) { mutableStateOf<String?>(null) }
     var season by remember(series.id) { mutableStateOf<Int?>(null) }
     val firstFocus = remember { FocusRequester() }
+    val firstEpisode = remember { FocusRequester() }
 
     LaunchedEffect(series.id) {
         try {
@@ -193,7 +194,11 @@ fun SeriesDetailScreen(vm: AppViewModel, series: SeriesItem, pageState: HomeStat
             error = e.message ?: "Bölümler yüklenemedi."
         }
         delay(100)
-        runCatching { firstFocus.requestFocus() }
+        // Start on the first episode, which is what the remote is usually after; the favorite
+        // button stays one press to the left.
+        if (episodes.isNullOrEmpty() || runCatching { firstEpisode.requestFocus() }.isFailure) {
+            runCatching { firstFocus.requestFocus() }
+        }
     }
 
     val fav = vm.isFavorite(FavKeys.series(series.id))
@@ -255,7 +260,8 @@ fun SeriesDetailScreen(vm: AppViewModel, series: SeriesItem, pageState: HomeStat
                                 text = "${e.number}. ${e.title}",
                                 secondary = e.plot,
                             reserveSecondary = true,
-                                modifier = Modifier.restorableFocus(pageState, key),
+                                modifier = (if (index == 0) Modifier.focusRequester(firstEpisode) else Modifier)
+                                    .restorableFocus(pageState, key),
                                 onClick = {
                                     nav.play(
                                         seasonEpisodes.map { PlayItem("${series.name} · S${it.season}B${it.number}", it.url, isLive = false) },

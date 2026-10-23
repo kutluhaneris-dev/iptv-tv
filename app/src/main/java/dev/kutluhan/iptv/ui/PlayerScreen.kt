@@ -134,12 +134,19 @@ internal fun mediaItemFor(item: PlayItem): MediaItem {
         .build()
 }
 
-private fun describe(e: PlaybackException): String = when (e.errorCode) {
+private val parsingErrors = setOf(
+    PlaybackException.ERROR_CODE_PARSING_CONTAINER_UNSUPPORTED,
+    PlaybackException.ERROR_CODE_PARSING_CONTAINER_MALFORMED,
+)
+
+private fun describe(e: PlaybackException, live: Boolean): String = when (e.errorCode) {
     PlaybackException.ERROR_CODE_IO_BAD_HTTP_STATUS -> "Sunucu yayını reddetti (HTTP hatası). Hesabınızda aynı anda izleme sınırı dolmuş olabilir."
     PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED,
     PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT -> "Bağlantı kurulamadı. İnternetinizi kontrol edin."
     PlaybackException.ERROR_CODE_PARSING_CONTAINER_UNSUPPORTED,
-    PlaybackException.ERROR_CODE_PARSING_CONTAINER_MALFORMED -> "Yayın formatı okunamadı. Ayarlardan canlı yayın formatını değiştirmeyi deneyin."
+    PlaybackException.ERROR_CODE_PARSING_CONTAINER_MALFORMED ->
+        if (live) "Yayın formatı okunamadı. Ayarlardan canlı yayın formatını değiştirmeyi deneyin."
+        else "Bu dosya okunamadı. Sunucu video yerine başka bir şey gönderdi ya da dosya bozuk."
     PlaybackException.ERROR_CODE_DECODER_INIT_FAILED,
     PlaybackException.ERROR_CODE_DECODING_FORMAT_UNSUPPORTED -> "Bu TV yayının kodekini desteklemiyor."
     else -> "Oynatılamadı: ${e.errorCodeName}"
@@ -178,6 +185,16 @@ fun PlayerScreen(vm: AppViewModel, items: List<PlayItem>, startIndex: Int, onInd
     var notice by remember { mutableStateOf<String?>(null) }
     var centerLongFired by remember { mutableStateOf(false) }
     var closeArmed by remember { mutableStateOf(false) }
+    var probeUrl by remember { mutableStateOf<String?>(null) }
+    var probeResult by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(probeUrl) {
+        val url = probeUrl ?: return@LaunchedEffect
+        probeResult = null
+        val result = Http.probe(url)
+        val ext = url.substringBefore('?').substringAfterLast('.', "?")
+        android.util.Log.w("IPTV-VOD", "playback failed for .$ext: $result")
+        probeResult = result
+    }
 
     fun closeTrackMenu() {
         trackMenu = false
@@ -230,7 +247,9 @@ fun PlayerScreen(vm: AppViewModel, items: List<PlayItem>, startIndex: Int, onInd
                     player.prepare()
                     return
                 }
-                error = describe(e)
+                error = describe(e, currentItem.isLive)
+                // For files the player can't read, show what the server really answered.
+                if (!currentItem.isLive && e.errorCode in parsingErrors) probeUrl = currentItem.url
             }
         }
         player.addListener(listener)
@@ -502,6 +521,10 @@ fun PlayerScreen(vm: AppViewModel, items: List<PlayItem>, startIndex: Int, onInd
                 Spacer(Modifier.height(8.dp))
                 Text(error!!, color = Palette.error, fontSize = 15.sp)
                 Spacer(Modifier.height(8.dp))
+                probeResult?.let {
+                    Text(it, color = Palette.textDim, fontSize = 12.sp, maxLines = 2)
+                    Spacer(Modifier.height(8.dp))
+                }
                 Text("OK: tekrar dene   ·   Geri: çık", color = Palette.textDim, fontSize = 13.sp)
             }
         }

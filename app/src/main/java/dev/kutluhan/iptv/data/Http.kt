@@ -71,6 +71,37 @@ object Http {
     }
 
     suspend fun text(url: String): String = open(url) { it.readBytes().toString(Charsets.UTF_8) }
+
+    /**
+     * Fetches the first bytes of [url] and describes what the server actually sent, for when the
+     * player can't read a file. Never includes the URL itself, since it carries the password.
+     */
+    suspend fun probe(url: String): String = withContext(Dispatchers.IO) {
+        try {
+            val request = Request.Builder().url(url).header("Range", "bytes=0-1023").build()
+            client.newCall(request).execute().use { r ->
+                val type = r.header("Content-Type") ?: "?"
+                val size = r.header("Content-Range")?.substringAfter('/') ?: r.header("Content-Length") ?: "?"
+                val bytes = r.body?.byteStream()?.use { it.readNBytesCompat(64) } ?: ByteArray(0)
+                val text = bytes.map { b -> val c = b.toInt() and 0xff; if (c in 32..126) c.toChar() else '.' }
+                    .joinToString("").trim('.')
+                "HTTP ${r.code} · $type · boyut $size · ${r.request.url.host} · başı: \"${text.take(48)}\""
+            }
+        } catch (e: Exception) {
+            "Sunucuya ulaşılamadı: ${e.javaClass.simpleName}"
+        }
+    }
+
+    private fun InputStream.readNBytesCompat(n: Int): ByteArray {
+        val buf = ByteArray(n)
+        var off = 0
+        while (off < n) {
+            val k = read(buf, off, n - off)
+            if (k < 0) break
+            off += k
+        }
+        return buf.copyOf(off)
+    }
 }
 
 /**
