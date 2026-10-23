@@ -50,6 +50,10 @@ enum class Section(val label: String) {
 
 const val ALL_CATEGORIES = "__all__"
 const val FAVORITE_CATEGORY = "__fav__"
+const val RECENT_CATEGORY = "__new__"
+
+/** How many items "Yeni eklenenler" shows, newest first. */
+const val RECENT_LIMIT = 200
 
 /** UI state that must survive opening the player or a series page on top of the home screen. */
 @Stable

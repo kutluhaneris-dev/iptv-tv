@@ -64,6 +64,7 @@ private fun CategoryColumn(
     val rows = remember(categories, counts) {
         buildList {
             add(Triple(ALL_CATEGORIES, "Tümü", total))
+            add(Triple(RECENT_CATEGORY, "Yeni eklenenler", -1))
             add(Triple(FAVORITE_CATEGORY, "Favoriler", -1))
             categories.forEach { c -> counts[c.id]?.takeIf { it > 0 }?.let { add(Triple(c.id, c.name, it)) } }
         }
@@ -99,6 +100,7 @@ fun VodScreen(vm: AppViewModel, catalog: Catalog, state: HomeState, nav: Navigat
     val items = remember(catalog, state.vodCategory, if (state.vodCategory == FAVORITE_CATEGORY) favorites else null) {
         when (state.vodCategory) {
             ALL_CATEGORIES -> catalog.vod
+            RECENT_CATEGORY -> catalog.vod.sortedByDescending { it.added }.take(RECENT_LIMIT)
             FAVORITE_CATEGORY -> catalog.vod.filter { FavKeys.vod(it.id) in favorites }
             else -> catalog.vodByCategory[state.vodCategory].orEmpty()
         }
@@ -139,6 +141,7 @@ fun SeriesScreen(vm: AppViewModel, catalog: Catalog, state: HomeState, nav: Navi
     val items = remember(catalog, state.seriesCategory, if (state.seriesCategory == FAVORITE_CATEGORY) favorites else null) {
         when (state.seriesCategory) {
             ALL_CATEGORIES -> catalog.series
+            RECENT_CATEGORY -> catalog.series.sortedByDescending { it.added }.take(RECENT_LIMIT)
             FAVORITE_CATEGORY -> catalog.series.filter { FavKeys.series(it.id) in favorites }
             else -> catalog.seriesByCategory[state.seriesCategory].orEmpty()
         }

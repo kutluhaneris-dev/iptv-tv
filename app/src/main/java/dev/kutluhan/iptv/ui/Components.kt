@@ -33,6 +33,11 @@ import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.layout.ContentScale
@@ -227,6 +232,8 @@ fun TvTextField(
     keyboardType: KeyboardType = KeyboardType.Uri,
     imeAction: ImeAction = ImeAction.Next,
     onDone: (() -> Unit)? = null,
+    /** D-pad Down; a text field otherwise keeps it for the cursor and focus can't leave downward. */
+    onDown: (() -> Unit)? = null,
 ) {
     val focusManager = LocalFocusManager.current
     var focused by remember { mutableStateOf(false) }
@@ -253,6 +260,14 @@ fun TvTextField(
                 .fillMaxWidth()
                 .padding(top = 4.dp)
                 .onFocusChanged { focused = it.isFocused }
+                .onPreviewKeyEvent { e ->
+                    if (onDown != null && e.key == Key.DirectionDown && e.type == KeyEventType.KeyDown) {
+                        onDown()
+                        true
+                    } else {
+                        false
+                    }
+                }
                 .clip(rowShape)
                 .background(Palette.panelAlt)
                 .border(2.dp, if (focused) Palette.accent else Color.Transparent, rowShape)

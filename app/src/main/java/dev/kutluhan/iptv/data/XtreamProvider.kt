@@ -125,6 +125,7 @@ class XtreamProvider(
                 categoryId = o["category_id"] ?: "",
                 url = "$base/movie/${enc(user)}/${enc(pass)}/$id.$ext",
                 rating = o["rating"].orNullIfBlank()?.takeIf { it != "0" },
+                added = o["added"]?.toLongOrNull() ?: 0,
             )
         }
         out
@@ -141,6 +142,7 @@ class XtreamProvider(
                 categoryId = o["category_id"] ?: "",
                 plot = o["plot"].orNullIfBlank(),
                 rating = o["rating"].orNullIfBlank()?.takeIf { it != "0" },
+                added = o["last_modified"]?.toLongOrNull() ?: 0,
             )
         }
         out

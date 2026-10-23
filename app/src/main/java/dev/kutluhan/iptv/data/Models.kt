@@ -19,6 +19,8 @@ data class VodItem(
     val categoryId: String,
     val url: String,
     val rating: String?,
+    /** When the provider added it (epoch seconds, 0 if unknown), for "Yeni eklenenler". */
+    val added: Long = 0,
 )
 
 data class SeriesItem(
@@ -28,6 +30,7 @@ data class SeriesItem(
     val categoryId: String,
     val plot: String?,
     val rating: String?,
+    val added: Long = 0,
 )
 
 data class Episode(

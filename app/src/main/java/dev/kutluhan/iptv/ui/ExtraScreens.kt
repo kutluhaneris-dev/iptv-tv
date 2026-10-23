@@ -21,6 +21,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -63,7 +65,7 @@ fun FavoritesScreen(vm: AppViewModel, catalog: Catalog, state: HomeState, nav: N
                     logo = ch.logo,
                     leading = if (ch.number > 0) ch.number.toString() else null,
                     secondary = vm.epg[ch.id]?.firstOrNull { it.isNow() }?.title,
-                    modifier = Modifier.restorableFocus(state, key),
+                    modifier = first.restorableFocus(state, key),
                     onFocus = { vm.loadEpg(ch) },
                     onLongClick = { vm.toggleFavorite(FavKeys.live(ch.id)) },
                     onClick = { nav.play(channels.map { it.toPlayItem() }, index, key) },
@@ -126,9 +128,15 @@ fun SearchScreen(vm: AppViewModel, catalog: Catalog, state: HomeState, nav: Navi
             out.take(300)
         }
     }
+    val firstResult = remember { FocusRequester() }
+    fun toResults() {
+        if (results.isNotEmpty()) runCatching { firstResult.requestFocus() }
+    }
     Column(Modifier.fillMaxSize()) {
         TvTextField(
             value = query,
+            onDown = { toResults() },
+            onDone = { toResults() },
             onValueChange = { state.searchQuery = it },
             label = "Kanal, film veya dizi ara",
             placeholder = "En az 2 harf",
@@ -140,7 +148,8 @@ fun SearchScreen(vm: AppViewModel, catalog: Catalog, state: HomeState, nav: Navi
             EmptyMessage("Sonuç yok.")
         }
         LazyColumn(Modifier.fillMaxSize()) {
-            itemsIndexed(results, key = { i, _ -> i }) { _, hit ->
+            itemsIndexed(results, key = { i, _ -> i }) { i, hit ->
+                val first = if (i == 0) Modifier.focusRequester(firstResult) else Modifier
                 when (hit) {
                     is SearchHit.Live -> {
                         val key = "search-live:${hit.channel.id}"
@@ -148,7 +157,7 @@ fun SearchScreen(vm: AppViewModel, catalog: Catalog, state: HomeState, nav: Navi
                             text = hit.channel.name,
                             secondary = "Canlı TV",
                             logo = hit.channel.logo,
-                            modifier = Modifier.restorableFocus(state, key),
+                            modifier = first.restorableFocus(state, key),
                             onLongClick = { vm.toggleFavorite(FavKeys.live(hit.channel.id)) },
                             favorite = FavKeys.live(hit.channel.id) in vm.favorites,
                             onClick = { nav.play(listOf(hit.channel.toPlayItem()), 0, key) },
@@ -159,7 +168,7 @@ fun SearchScreen(vm: AppViewModel, catalog: Catalog, state: HomeState, nav: Navi
                         TvRow(
                             text = hit.item.name,
                             secondary = "Film",
-                            modifier = Modifier.restorableFocus(state, key),
+                            modifier = first.restorableFocus(state, key),
                             onLongClick = { vm.toggleFavorite(FavKeys.vod(hit.item.id)) },
                             favorite = FavKeys.vod(hit.item.id) in vm.favorites,
                             onClick = { nav.play(listOf(hit.item.toPlayItem()), 0, key) },
@@ -170,7 +179,7 @@ fun SearchScreen(vm: AppViewModel, catalog: Catalog, state: HomeState, nav: Navi
                         TvRow(
                             text = hit.item.name,
                             secondary = "Dizi",
-                            modifier = Modifier.restorableFocus(state, key),
+                            modifier = first.restorableFocus(state, key),
                             onLongClick = { vm.toggleFavorite(FavKeys.series(hit.item.id)) },
                             favorite = FavKeys.series(hit.item.id) in vm.favorites,
                             onClick = { nav.openSeries(hit.item, key) },
