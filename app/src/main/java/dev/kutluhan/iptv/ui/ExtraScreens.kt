@@ -65,7 +65,7 @@ fun FavoritesScreen(vm: AppViewModel, catalog: Catalog, state: HomeState, nav: N
                     logo = ch.logo,
                     leading = if (ch.number > 0) ch.number.toString() else null,
                     secondary = vm.epg[ch.id]?.firstOrNull { it.isNow() }?.title,
-                    modifier = first.restorableFocus(state, key),
+                    modifier = Modifier.restorableFocus(state, key),
                     onFocus = { vm.loadEpg(ch) },
                     onLongClick = { vm.toggleFavorite(FavKeys.live(ch.id)) },
                     onClick = { nav.play(channels.map { it.toPlayItem() }, index, key) },
