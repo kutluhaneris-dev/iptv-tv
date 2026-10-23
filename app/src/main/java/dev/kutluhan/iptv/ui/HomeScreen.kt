@@ -81,6 +81,9 @@ fun Modifier.restorableFocus(state: HomeState, key: String): Modifier {
         if (state.restoreTick > 0) {
             delay(60)
             runCatching { requester.requestFocus() }
+            // One return, one restore: otherwise coming back to this section later would pull
+            // focus out of the top bar into the list again.
+            state.restoreKey = null
         }
     }
     return this.focusRequester(requester)
