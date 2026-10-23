@@ -194,17 +194,11 @@ fun PlayerScreen(vm: AppViewModel, items: List<PlayItem>, startIndex: Int, onInd
         val ext = url.substringBefore('?').substringAfterLast('.', "?")
         android.util.Log.w("IPTV-VOD", "playback failed for .$ext: $result")
         probeResult = result
-        // Diagnostics: which variant, if any, gets real video from this server.
-        val base = url.substringBefore('?').substringBeforeLast('.')
-        val variants = listOf(
-            "no-range" to suspend { Http.probe(url, range = false) },
-            "ua=okhttp" to suspend { Http.probe(url, ua = "okhttp/4.12.0") },
-            "ua=smarters" to suspend { Http.probe(url, ua = "IPTVSmartersPlayer") },
-            "ext=mkv" to suspend { Http.probe("$base.mkv") },
-            "ext=ts" to suspend { Http.probe("$base.ts") },
-            "ext=m3u8" to suspend { Http.probe("$base.m3u8") },
-        )
-        for ((name, run) in variants) android.util.Log.w("IPTV-VOD", "variant $name: ${run()}")
+        // This provider answers an empty web page instead of the file when it won't serve it.
+        if (result.startsWith("HTTP 200") && result.contains("text/html")) {
+            error = "Sağlayıcı bu içeriği şu an göndermiyor (video yerine boş sayfa geldi). " +
+                "Başka bir uygulamada da açılmıyorsa sorun sağlayıcıda."
+        }
     }
 
     fun closeTrackMenu() {
