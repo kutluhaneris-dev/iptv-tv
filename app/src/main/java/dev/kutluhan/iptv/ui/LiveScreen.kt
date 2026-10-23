@@ -256,6 +256,7 @@ private fun PreviewVideo(channel: LiveChannel) {
     val context = LocalContext.current
     val player = remember { buildPlayer(context, PlayerMode.STANDARD, light = true) }
     var ready by remember { mutableStateOf(false) }
+    var failed by remember { mutableStateOf(false) }
     DisposableEffect(player) {
         val listener = object : Player.Listener {
             override fun onRenderedFirstFrame() {
@@ -264,6 +265,7 @@ private fun PreviewVideo(channel: LiveChannel) {
 
             override fun onPlayerError(error: PlaybackException) {
                 ready = false
+                failed = true
             }
         }
         player.addListener(listener)
@@ -274,6 +276,7 @@ private fun PreviewVideo(channel: LiveChannel) {
     }
     LaunchedEffect(channel.id) {
         ready = false
+        failed = false
         player.stop()
         player.clearMediaItems()
         delay(900) // only open a stream once the user stops on a channel
@@ -303,24 +306,22 @@ private fun PreviewVideo(channel: LiveChannel) {
             modifier = Modifier.fillMaxSize(),
         )
         if (!ready) {
-            if (channel.logo != null) {
-                AsyncImage(
-                    model = channel.logo,
-                    contentDescription = null,
-                    modifier = Modifier
-                        .align(Alignment.Center)
-                        .size(width = 120.dp, height = 68.dp),
-                    contentScale = ContentScale.Fit,
+            Column(Modifier.align(Alignment.Center), horizontalAlignment = Alignment.CenterHorizontally) {
+                if (channel.logo != null) {
+                    AsyncImage(
+                        model = channel.logo,
+                        contentDescription = null,
+                        modifier = Modifier.size(width = 120.dp, height = 68.dp),
+                        contentScale = ContentScale.Fit,
+                    )
+                    Spacer(Modifier.height(8.dp))
+                }
+                Text(
+                    if (failed) "Önizleme açılamadı" else "Önizleme yükleniyor...",
+                    color = Palette.textDim,
+                    fontSize = 12.sp,
                 )
             }
-            Text(
-                "Önizleme yükleniyor...",
-                color = Palette.textDim,
-                fontSize = 12.sp,
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .padding(bottom = 8.dp),
-            )
         }
     }
 }

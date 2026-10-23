@@ -177,6 +177,7 @@ fun PlayerScreen(vm: AppViewModel, items: List<PlayItem>, startIndex: Int, onInd
     var trackMenu by remember { mutableStateOf(false) }
     var notice by remember { mutableStateOf<String?>(null) }
     var centerLongFired by remember { mutableStateOf(false) }
+    var closeArmed by remember { mutableStateOf(false) }
 
     fun closeTrackMenu() {
         trackMenu = false
@@ -342,7 +343,13 @@ fun PlayerScreen(vm: AppViewModel, items: List<PlayItem>, startIndex: Int, onInd
                 val closes = event.key == Key.Back || code == AndroidKeyEvent.KEYCODE_MENU ||
                     code == AndroidKeyEvent.KEYCODE_CAPTIONS || code == AndroidKeyEvent.KEYCODE_MEDIA_AUDIO_TRACK
                 if (!closes) return@onPreviewKeyEvent false
-                if (event.type == KeyEventType.KeyUp) closeTrackMenu()
+                // Only a press that started while the menu was open closes it; otherwise the
+                // key-up of the very press that opened the menu would shut it straight away.
+                if (event.type == KeyEventType.KeyDown) closeArmed = true
+                else if (event.type == KeyEventType.KeyUp && closeArmed) {
+                    closeArmed = false
+                    closeTrackMenu()
+                }
                 true
             }
             .onKeyEvent { event ->
