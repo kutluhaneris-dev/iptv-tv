@@ -177,7 +177,7 @@ class VideoPlayer(factory: MediaPlayerFactory, initialVolume: Int = 100) {
     fun describeVideo(): String = try {
         val tracks = player.media().info().videoTracks()
         if (tracks.isEmpty()) "video parçası yok" else tracks.joinToString { t ->
-            "${t.codecName()} ${t.width()}x${t.height()} ${if (t.frameRateDen() > 0) t.frameRate() / t.frameRateDen() else 0} fps"
+            "${t.codecName()} ${t.width()}x${t.height()} ${if (t.frameRateBase() > 0) t.frameRate() / t.frameRateBase() else 0} fps"
         }
     } catch (e: Throwable) {
         "?"
