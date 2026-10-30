@@ -65,3 +65,10 @@ compose.desktop {
         }
     }
 }
+
+// Used by CI to check that video frames reach the UI on a real Mac / Windows machine.
+tasks.register<JavaExec>("frameCheck") {
+    classpath = sourceSets["main"].runtimeClasspath
+    mainClass.set("dev.kutluhan.iptv.desktop.FrameCheckKt")
+    args(providers.gradleProperty("media").getOrElse("test.ts"))
+}

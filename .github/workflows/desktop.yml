@@ -47,6 +47,17 @@ jobs:
         shell: bash
         run: ./gradlew -p desktop ${{ matrix.task }} --stacktrace
 
+      - name: Check that video frames reach the app (macOS)
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          brew install --cask vlc >/dev/null
+          brew install ffmpeg >/dev/null
+          ffmpeg -loglevel error -f lavfi -i testsrc=size=1280x720:rate=25 -f lavfi -i sine=frequency=440 -t 15 \
+            -c:v libx264 -pix_fmt yuv420p -c:a aac -f mpegts "$RUNNER_TEMP/test.ts"
+          IPTV_VLC_VERBOSE=1 ./gradlew -p desktop frameCheck -Pmedia="$RUNNER_TEMP/test.ts" 2>&1 | grep -E "FRAMECHECK|vout|chroma|error" | head -80
+          exit ${PIPESTATUS[0]}
+
       - name: Rename
         shell: bash
         run: cp desktop/build/compose/binaries/main/${{ matrix.dir }}/*.${{ matrix.dir }} "${{ matrix.asset }}"

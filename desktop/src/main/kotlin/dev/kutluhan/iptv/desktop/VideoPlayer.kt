@@ -26,7 +26,8 @@ object Vlc {
     val factory: MediaPlayerFactory? by lazy {
         try {
             if (!NativeDiscovery().discover()) return@lazy null
-            MediaPlayerFactory("--quiet", "--no-video-title-show", "--no-snapshot-preview", "--no-osd")
+            val verbose = System.getenv("IPTV_VLC_VERBOSE") != null
+            MediaPlayerFactory(if (verbose) "-vv" else "--quiet", "--no-video-title-show", "--no-snapshot-preview", "--no-osd")
         } catch (e: Throwable) {
             System.err.println("VLC yüklenemedi: $e")
             null
@@ -78,6 +79,11 @@ class VideoPlayer(factory: MediaPlayerFactory, initialVolume: Int = 100) {
     private var info: ImageInfo? = null
     private var bytes: ByteArray = ByteArray(0)
     private val shown = ArrayDeque<Bitmap>()
+
+    /** Frames libVLC has handed over, for diagnosing a stream with sound but no picture. */
+    @Volatile
+    var renderedFrames = 0
+        private set
     private var released = false
 
     init {
@@ -93,6 +99,7 @@ class VideoPlayer(factory: MediaPlayerFactory, initialVolume: Int = 100) {
         }
         val renderCallback = RenderCallback { _, buffers, _ ->
             val i = info ?: return@RenderCallback
+            renderedFrames++
             val buf = buffers[0]
             if (bytes.size != buf.capacity()) bytes = ByteArray(buf.capacity())
             buf.rewind()
