@@ -173,6 +173,16 @@ class VideoPlayer(factory: MediaPlayerFactory, initialVolume: Int = 100) {
         player.audio().setMute(muted)
     }
 
+    /** Codec, size and frame rate of the picture libVLC found, for the D info panel and CI. */
+    fun describeVideo(): String = try {
+        val tracks = player.media().info().videoTracks()
+        if (tracks.isEmpty()) "video parçası yok" else tracks.joinToString { t ->
+            "${t.codecName()} ${t.width()}x${t.height()} ${if (t.frameRateDen() > 0) t.frameRate() / t.frameRateDen() else 0} fps"
+        }
+    } catch (e: Throwable) {
+        "?"
+    }
+
     fun togglePause() {
         when (state) {
             PlayState.PLAYING -> player.controls().setPause(true)

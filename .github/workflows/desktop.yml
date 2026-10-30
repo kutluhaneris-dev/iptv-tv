@@ -53,14 +53,18 @@ jobs:
         run: |
           brew install --cask vlc >/dev/null
           brew install ffmpeg >/dev/null
+          D="$RUNNER_TEMP"
+          # A plain H.264 stream, an interlaced 1080i H.264 stream and an HEVC stream, like real IPTV channels.
           ffmpeg -loglevel error -f lavfi -i testsrc=size=1280x720:rate=25 -f lavfi -i sine=frequency=440 -t 15 \
-            -c:v libx264 -pix_fmt yuv420p -c:a aac -f mpegts "$RUNNER_TEMP/test.ts"
+            -c:v libx264 -pix_fmt yuv420p -c:a aac -f mpegts "$D/h264.ts"
+          ffmpeg -loglevel error -f lavfi -i testsrc2=size=1920x1080:rate=25 -f lavfi -i sine=frequency=440 -t 15 \
+            -vf "tinterlace=interleave_top,fieldorder=tff" -flags +ildct+ilme -c:v libx264 -pix_fmt yuv420p -c:a aac -f mpegts "$D/h264-1080i.ts"
+          ffmpeg -loglevel error -f lavfi -i testsrc2=size=1920x1080:rate=25 -f lavfi -i sine=frequency=440 -t 15 \
+            -c:v libx265 -pix_fmt yuv420p -tag:v hvc1 -c:a aac -f mpegts "$D/hevc.ts"
           set +e
-          IPTV_VLC_VERBOSE=1 ./gradlew -p desktop frameCheck -Pmedia="$RUNNER_TEMP/test.ts" > "$RUNNER_TEMP/framecheck.log" 2>&1
+          ./gradlew -p desktop frameCheck -Pmedia="$D/h264.ts,$D/h264-1080i.ts,$D/hevc.ts" > "$RUNNER_TEMP/framecheck.log" 2>&1
           status=$?
-          grep -E "FRAMECHECK|vout|chroma|video output|Exception|FAILED|error" "$RUNNER_TEMP/framecheck.log" | head -120
-          echo "---- tail ----"
-          tail -60 "$RUNNER_TEMP/framecheck.log"
+          grep -E "FRAMECHECK|Exception|^e: |FAILED" "$RUNNER_TEMP/framecheck.log" | head -60
           exit $status
 
       - name: Rename

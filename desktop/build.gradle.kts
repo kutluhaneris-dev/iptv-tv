@@ -70,5 +70,5 @@ compose.desktop {
 tasks.register<JavaExec>("frameCheck") {
     classpath = sourceSets["main"].runtimeClasspath
     mainClass.set("dev.kutluhan.iptv.desktop.FrameCheckKt")
-    args(providers.gradleProperty("media").getOrElse("test.ts"))
+    args(providers.gradleProperty("media").getOrElse("test.ts").split(","))
 }

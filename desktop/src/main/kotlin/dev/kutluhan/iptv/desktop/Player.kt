@@ -113,6 +113,7 @@ fun PlayerScreen(
     var menuOpen by remember { mutableStateOf(false) }
     var digits by remember { mutableStateOf("") }
     var diagnosis by remember { mutableStateOf<String?>(null) }
+    var debug by remember { mutableStateOf(false) }
     val focus = remember { FocusRequester() }
 
     fun showOverlay() {
@@ -210,6 +211,7 @@ fun PlayerScreen(
                     Key.Spacebar, Key.K -> p?.togglePause()
                     Key.F, Key.Enter -> toggleFullscreen()
                     Key.M -> p?.toggleMute()
+                    Key.D -> debug = !debug
                     Key.A, Key.S -> menuOpen = !menuOpen
                     Key.DirectionLeft -> p?.seekBy(if (e.isShiftPressed) -60_000 else -10_000)
                     Key.DirectionRight -> p?.seekBy(if (e.isShiftPressed) 60_000 else 10_000)
@@ -256,6 +258,18 @@ fun PlayerScreen(
                     }
                 }
             }
+        }
+
+        if (debug && player != null) {
+            // Re-read on every clock tick (now) so the numbers stay current.
+            val info = remember(now / 1000) { player.describeVideo() }
+            Text(
+                "durum: ${player.state} · kare: ${player.renderedFrames} · tampon: ${(player.buffering).toInt()}%\n" +
+                    "video: $info\nses parçası: ${player.audioTracks.size} · zaman: ${formatTime(player.time)}",
+                color = Color.Yellow,
+                fontSize = 13.sp,
+                modifier = Modifier.align(Alignment.TopStart).padding(top = 70.dp, start = 24.dp).background(Color.Black.copy(alpha = 0.6f)).padding(8.dp),
+            )
         }
 
         if (digits.isNotEmpty()) {
@@ -348,7 +362,7 @@ fun PlayerScreen(
                     )
                 }
                 Text(
-                    if (item.isLive) "Boşluk: duraklat  ·  ↑↓: kanal  ·  rakamlar: kanal no  ·  F / çift tık: tam ekran  ·  M: ses kapat  ·  A: ses/altyazı  ·  Esc: geri"
+                    if (item.isLive) "Boşluk: duraklat  ·  ↑↓: kanal  ·  rakamlar: kanal no  ·  F / çift tık: tam ekran  ·  M: ses kapat  ·  A: ses/altyazı  ·  D: bilgi  ·  Esc: geri"
                     else "Boşluk: duraklat  ·  ←→: 10 sn  ·  Shift+←→: 1 dk  ·  ↑↓: ses  ·  F / çift tık: tam ekran  ·  A: ses/altyazı  ·  Esc: geri",
                     color = Palette.textDim,
                     fontSize = 11.sp,
