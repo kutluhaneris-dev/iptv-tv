@@ -189,7 +189,7 @@ fun SearchScreen(app: AppState, catalog: Catalog, state: HomeState, nav: Navigat
     }
 }
 
-private val userAgents = listOf(
+val userAgents = listOf(
     "VLC (önerilen)" to DEFAULT_USER_AGENT,
     "IPTV Smarters" to "IPTVSmartersPlayer",
     "TiviMate" to "TiviMate/4.7.0 (Android TV)",

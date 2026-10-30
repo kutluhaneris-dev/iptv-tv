@@ -24,7 +24,6 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -46,7 +45,6 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import dev.kutluhan.iptv.data.DEFAULT_USER_AGENT
 import dev.kutluhan.iptv.data.M3uProfile
 import dev.kutluhan.iptv.data.Profile
 import dev.kutluhan.iptv.data.XtreamProfile
@@ -111,16 +109,22 @@ fun LoginScreen(app: AppState) {
                 if (message != null) {
                     Text(message, color = Palette.error, fontSize = 14.sp, modifier = Modifier.padding(top = 8.dp))
                 }
+                // Settings are only reachable after login, and some providers refuse unknown players
+                // (HTTP 403 / 512), so the player identity can be picked here too.
+                Text(
+                    "Uygulama kimliği (User-Agent): sunucu 403 veya 512 hatası verirse diğerlerini deneyin.",
+                    fontSize = 13.sp,
+                    color = Palette.textDim,
+                    modifier = Modifier.padding(top = 14.dp, bottom = 6.dp),
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    userAgents.forEach { (label, ua) ->
+                        FilterChip(selected = app.userAgent == ua, onClick = { app.updateUserAgent(ua) }, label = { Text(label) })
+                    }
+                }
                 Spacer(Modifier.height(14.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Button(onClick = ::submit, enabled = !app.loading) {
-                        Text(if (app.loading) "Bağlanıyor..." else "Bağlan")
-                    }
-                    if (app.userAgent != DEFAULT_USER_AGENT) {
-                        OutlinedButton(onClick = { app.updateUserAgent(DEFAULT_USER_AGENT) }) {
-                            Text("User-Agent'ı VLC'ye geri al")
-                        }
-                    }
+                Button(onClick = ::submit, enabled = !app.loading) {
+                    Text(if (app.loading) "Bağlanıyor..." else "Bağlan")
                 }
             }
             Spacer(Modifier.width(48.dp))

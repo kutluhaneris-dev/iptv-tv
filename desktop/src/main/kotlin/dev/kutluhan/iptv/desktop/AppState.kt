@@ -86,7 +86,13 @@ class AppState(val storage: Settings = Settings()) {
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Throwable) {
-                error = e.message ?: e.javaClass.simpleName
+                val message = e.message ?: e.javaClass.simpleName
+                error = if ("HTTP 403" in message || "HTTP 512" in message || "HTTP 401" in message) {
+                    "$message\nSunucu bu bağlantıyı reddetti. Aşağıdan başka bir uygulama kimliği seçip tekrar deneyin. " +
+                        "Mac'te iCloud Özel Geçiş (Private Relay) veya VPN açıksa kapatıp deneyin; bazı sağlayıcılar bu adresleri engeller."
+                } else {
+                    message
+                }
                 profile = null
             } finally {
                 if (loadJob === coroutineContext[Job]) loading = false
