@@ -25,3 +25,18 @@ Her `main` push'unda GitHub Actions APK'yı derler ve yeni bir release yayınlar
 Yerelde: `./gradlew assembleRelease` (Android SDK gerekir).
 
 APK, depodaki `keystore/debug.keystore` ile imzalanır; böylece her sürüm öncekinin üzerine kurulabilir.
+
+## Mac ve Windows
+
+`desktop/` klasöründe aynı uygulamanın fare ve klavyeyle kullanılan masaüstü sürümü var
+(Compose for Desktop). Xtream / M3U / EPG kodu TV uygulamasıyla ortaktır
+(`app/src/main/java/dev/kutluhan/iptv/data`), görüntü VLC'nin motoruyla (libVLC, vlcj) oynatılır.
+
+- Bilgisayarda ücretsiz **VLC** kurulu olmalı: https://www.videolan.org/vlc/
+- Kurulum dosyaları her `main` push'unda `desktop-v1.0.N` adlı release'e eklenir:
+  `IPTV-mac-apple-silicon.dmg`, `IPTV-mac-intel.dmg`, `IPTV-windows.msi`.
+- Uygulama imzasız olduğu için Mac ilk açılışta uyarı verir: Sistem Ayarları → Gizlilik ve Güvenlik →
+  **Yine de Aç**. "Hasarlı" derse Terminal'de `xattr -cr /Applications/IPTV.app` çalıştırın.
+- Kısayollar: Boşluk duraklat, F veya çift tık tam ekran, ↑↓ kanal (canlı) / ses (film), ←→ 10 sn,
+  M sessiz, A ses/altyazı menüsü, Esc geri. Favori için ☆ işaretine veya sağ tıka basın.
+- Yerelde çalıştırma: `./gradlew -p desktop run`, paketleme: `./gradlew -p desktop packageDistributionForCurrentOS`.
