@@ -77,8 +77,8 @@ class VideoPlayer(factory: MediaPlayerFactory, initialVolume: Int = 100) {
 
     private val player: EmbeddedMediaPlayer = factory.mediaPlayers().newEmbeddedMediaPlayer()
     private var info: ImageInfo? = null
-    private var bytes: ByteArray = ByteArray(0)
     private val shown = ArrayDeque<Bitmap>()
+    private val framePending = java.util.concurrent.atomic.AtomicBoolean(false)
 
     /** Frames libVLC has handed over, for diagnosing a stream with sound but no picture. */
     @Volatile
@@ -93,32 +93,32 @@ class VideoPlayer(factory: MediaPlayerFactory, initialVolume: Int = 100) {
                 return RV32BufferFormat(sourceWidth, sourceHeight)
             }
 
-            override fun allocatedBuffers(buffers: Array<ByteBuffer>) {
-                bytes = ByteArray(buffers[0].capacity())
-            }
+            override fun allocatedBuffers(buffers: Array<ByteBuffer>) = Unit
         }
         val renderCallback = RenderCallback { _, buffers, _ ->
             val i = info ?: return@RenderCallback
             renderedFrames++
+            // Drop this frame if the UI has not drawn the previous one yet, so slow drawing can't build a backlog.
+            if (!framePending.compareAndSet(false, true)) return@RenderCallback
             val buf = buffers[0]
-            if (bytes.size != buf.capacity()) bytes = ByteArray(buf.capacity())
-            buf.rewind()
-            buf.get(bytes)
-            buf.rewind()
-            val bmp = Bitmap()
-            bmp.allocPixels(i)
             // Each frame gets its own pixels: libVLC reuses its buffer, and Skia keeps the image alive.
-            bmp.installPixels(bytes.copyOf())
-            bmp.setImmutable()
+            val copy = ByteArray(buf.capacity())
+            buf.rewind()
+            buf.get(copy)
+            buf.rewind()
             SwingUtilities.invokeLater {
-                if (released) {
-                    bmp.close()
-                    return@invokeLater
+                try {
+                    if (released) return@invokeLater
+                    val bmp = Bitmap()
+                    bmp.installPixels(i, copy, i.minRowBytes)
+                    bmp.setImmutable()
+                    frame = bmp.asComposeImageBitmap()
+                    shown.addLast(bmp)
+                    // Skia keeps pixels alive while an image still draws them, so older handles can go.
+                    while (shown.size > 3) shown.removeFirst().close()
+                } finally {
+                    framePending.set(false)
                 }
-                frame = bmp.asComposeImageBitmap()
-                shown.addLast(bmp)
-                // Skia keeps pixels alive while an image still draws them, so older handles can go.
-                while (shown.size > 3) shown.removeFirst().close()
             }
         }
         player.videoSurface().set(factory.videoSurfaces().newVideoSurface(formatCallback, renderCallback, true))
