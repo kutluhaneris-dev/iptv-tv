@@ -55,8 +55,13 @@ jobs:
           brew install ffmpeg >/dev/null
           ffmpeg -loglevel error -f lavfi -i testsrc=size=1280x720:rate=25 -f lavfi -i sine=frequency=440 -t 15 \
             -c:v libx264 -pix_fmt yuv420p -c:a aac -f mpegts "$RUNNER_TEMP/test.ts"
-          IPTV_VLC_VERBOSE=1 ./gradlew -p desktop frameCheck -Pmedia="$RUNNER_TEMP/test.ts" 2>&1 | grep -E "FRAMECHECK|vout|chroma|error" | head -80
-          exit ${PIPESTATUS[0]}
+          set +e
+          IPTV_VLC_VERBOSE=1 ./gradlew -p desktop frameCheck -Pmedia="$RUNNER_TEMP/test.ts" > "$RUNNER_TEMP/framecheck.log" 2>&1
+          status=$?
+          grep -E "FRAMECHECK|vout|chroma|video output|Exception|FAILED|error" "$RUNNER_TEMP/framecheck.log" | head -120
+          echo "---- tail ----"
+          tail -60 "$RUNNER_TEMP/framecheck.log"
+          exit $status
 
       - name: Rename
         shell: bash
