@@ -107,7 +107,8 @@ class VideoPlayer(factory: MediaPlayerFactory, initialVolume: Int = 100) {
             buf.rewind()
             val bmp = Bitmap()
             bmp.allocPixels(i)
-            bmp.installPixels(bytes)
+            // Each frame gets its own pixels: libVLC reuses its buffer, and Skia keeps the image alive.
+            bmp.installPixels(bytes.copyOf())
             bmp.setImmutable()
             SwingUtilities.invokeLater {
                 if (released) {
@@ -162,6 +163,9 @@ class VideoPlayer(factory: MediaPlayerFactory, initialVolume: Int = 100) {
         val options = buildList {
             add(":http-user-agent=$userAgent")
             add(":http-reconnect")
+            // Hardware decoding hands out GPU pictures that some streams never convert to a visible frame
+            // in this render path; software decoding is reliable and fast enough on current Macs and PCs.
+            add(":avcodec-hw=none")
             add(":network-caching=${if (live) 2000 else 3000}")
         }
         player.media().play(url, *options.toTypedArray())
