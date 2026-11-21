@@ -4,8 +4,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.ImageBitmap
-import androidx.compose.ui.graphics.asComposeImageBitmap
-import org.jetbrains.skia.Bitmap
+import androidx.compose.ui.graphics.toComposeImageBitmap
+import org.jetbrains.skia.Image
 import org.jetbrains.skia.ColorAlphaType
 import org.jetbrains.skia.ColorType
 import org.jetbrains.skia.ImageInfo
@@ -77,7 +77,7 @@ class VideoPlayer(factory: MediaPlayerFactory, initialVolume: Int = 100) {
 
     private val player: EmbeddedMediaPlayer = factory.mediaPlayers().newEmbeddedMediaPlayer()
     private var info: ImageInfo? = null
-    private val shown = ArrayDeque<Bitmap>()
+    private val shown = ArrayDeque<Image>()
     private val framePending = java.util.concurrent.atomic.AtomicBoolean(false)
 
     /** Frames libVLC has handed over, for diagnosing a stream with sound but no picture. */
@@ -109,12 +109,11 @@ class VideoPlayer(factory: MediaPlayerFactory, initialVolume: Int = 100) {
             SwingUtilities.invokeLater {
                 try {
                     if (released) return@invokeLater
-                    val bmp = Bitmap()
-                    bmp.installPixels(i, copy, i.minRowBytes)
-                    bmp.setImmutable()
-                    frame = bmp.asComposeImageBitmap()
-                    shown.addLast(bmp)
-                    // Skia keeps pixels alive while an image still draws them, so older handles can go.
+                    // makeRaster copies the pixels into Skia-owned memory that only close() releases promptly;
+                    // waiting for the garbage collector would let native memory grow by hundreds of MB a second.
+                    val image = Image.makeRaster(i, copy, i.minRowBytes)
+                    frame = image.toComposeImageBitmap()
+                    shown.addLast(image)
                     while (shown.size > 3) shown.removeFirst().close()
                 } finally {
                     framePending.set(false)

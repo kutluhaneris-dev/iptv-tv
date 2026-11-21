@@ -43,6 +43,13 @@ fun main(args: Array<String>) {
                 scene.close()
             }
         }
+        // Native memory must not climb with every frame (it grew by hundreds of MB a second before frames were closed).
+        val rssMb = runCatching {
+            ProcessBuilder("ps", "-o", "rss=", "-p", ProcessHandle.current().pid().toString()).start()
+                .inputStream.bufferedReader().readText().trim().toLong() / 1024
+        }.getOrDefault(-1L)
+        println("FRAMECHECK[$file]: process memory ${rssMb} MB")
+        if (rssMb > 1800) ok = false
         println("FRAMECHECK[$file]: " + if (ok) "OK" else "NO PICTURE")
         allOk = allOk && ok
         SwingUtilities.invokeAndWait { player.release() }
