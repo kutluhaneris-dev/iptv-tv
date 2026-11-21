@@ -50,7 +50,7 @@ jobs:
       - name: Check the packaged runtime has the modules vlcj needs
         shell: bash
         run: |
-          JAVA=$(find desktop/build/compose/binaries/main/app -type f \( -name java -o -name java.exe \) | head -1)
+          JAVA=$(find desktop/build/compose -path "*runtime*" -type f \( -name java -o -name java.exe \) | head -1)
           echo "runtime: $JAVA"
           "$JAVA" --list-modules | tee "$RUNNER_TEMP/modules.txt"
           grep -q '^jdk.unsupported' "$RUNNER_TEMP/modules.txt"
