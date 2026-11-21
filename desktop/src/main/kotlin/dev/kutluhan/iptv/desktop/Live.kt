@@ -240,6 +240,24 @@ private fun ChannelPreview(app: AppState, channel: LiveChannel?, player: VideoPl
                 }
             }
         }
+        if (channel != null && player != null && app.livePreview) {
+            // Always visible so a picture that never shows can be reported without any key presses.
+            var tick by remember { mutableStateOf(0) }
+            LaunchedEffect(Unit) {
+                while (true) {
+                    delay(1000)
+                    tick++
+                }
+            }
+            val info = remember(tick, channel.id) { player.describeVideo() }
+            Text(
+                "${player.state} · kare ${player.renderedFrames} · tampon ${player.buffering.toInt()}% · $info",
+                color = Palette.textDim,
+                fontSize = 11.sp,
+                maxLines = 2,
+                modifier = Modifier.padding(top = 4.dp),
+            )
+        }
         if (channel != null) {
             Row(Modifier.padding(top = 12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text(channel.name, color = Palette.text, fontSize = 20.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
