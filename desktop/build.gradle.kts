@@ -50,7 +50,7 @@ compose.desktop {
             packageVersion = (System.getenv("DESKTOP_VERSION") ?: "1.0.0")
             description = "IPTV oynatıcı"
             vendor = "Kutluhan"
-            modules("java.naming", "java.sql")
+            modules("java.naming", "java.sql", "jdk.unsupported", "java.management")
             macOS {
                 bundleID = "dev.kutluhan.iptv.desktop"
                 iconFile.set(project.file("icons/icon.icns"))
