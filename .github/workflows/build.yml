@@ -3,7 +3,10 @@ name: Build APK
 on:
   push:
     branches: [main]
+    # The Mac / Windows app has its own workflow; it must not publish a new APK.
+    paths-ignore: ['desktop/**', '.github/workflows/desktop.yml']
   pull_request:
+    paths-ignore: ['desktop/**', '.github/workflows/desktop.yml']
   workflow_dispatch:
 
 permissions:
